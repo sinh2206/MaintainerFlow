@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: maintainerflow
+          POSTGRES_USER: maintainerflow
+          POSTGRES_PASSWORD: maintainerflow
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U maintainerflow"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:8-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv sync --frozen --extra dev
+      - run: uv run ruff check .
+      - run: uv run mypy src/maintainerflow
+      - run: uv run pytest -m "not e2e"
+      - run: uv run alembic upgrade head
+        env:
+          MAINTAINERFLOW_GITHUB_APP_ID: "1"
+          MAINTAINERFLOW_GITHUB_WEBHOOK_SECRET: ci-only-secret-value
+          MAINTAINERFLOW_DATABASE_URL: postgresql+asyncpg://maintainerflow:maintainerflow@localhost:5432/maintainerflow
+          MAINTAINERFLOW_REDIS_URL: redis://localhost:6379/0
+      - run: uv run alembic check
+        env:
+          MAINTAINERFLOW_GITHUB_APP_ID: "1"
+          MAINTAINERFLOW_GITHUB_WEBHOOK_SECRET: ci-only-secret-value
+          MAINTAINERFLOW_DATABASE_URL: postgresql+asyncpg://maintainerflow:maintainerflow@localhost:5432/maintainerflow
+          MAINTAINERFLOW_REDIS_URL: redis://localhost:6379/0

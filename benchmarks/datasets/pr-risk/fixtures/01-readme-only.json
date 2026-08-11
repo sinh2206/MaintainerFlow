@@ -1,0 +1,9 @@
+{
+  "repository": {"github_id": 1, "owner": "example", "name": "demo"},
+  "number": 1,
+  "base_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "head_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "title": "Improve README",
+  "body": "Clarifies installation.",
+  "diff": "diff --git a/README.md b/README.md\n--- a/README.md\n+++ b/README.md\n@@ -1 +1 @@\n-Old instructions\n+Clear instructions"
+}

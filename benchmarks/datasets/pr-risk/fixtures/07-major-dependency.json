@@ -1,0 +1,9 @@
+{
+  "repository": {"github_id": 1, "owner": "example", "name": "demo"},
+  "number": 7,
+  "base_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "head_sha": "2222222222222222222222222222222222222222",
+  "title": "Upgrade framework major version",
+  "body": "Updates the runtime dependency.",
+  "diff": "diff --git a/package.json b/package.json\n--- a/package.json\n+++ b/package.json\n@@ -2 +2 @@\n-  \"framework\": \"^18.0.0\"\n+  \"framework\": \"^19.0.0\""
+}

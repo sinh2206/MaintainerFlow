@@ -1,0 +1,9 @@
+{
+  "repository": {"github_id": 1, "owner": "example", "name": "demo"},
+  "number": 5,
+  "base_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "head_sha": "ffffffffffffffffffffffffffffffffffffffff",
+  "title": "Change authentication policy",
+  "body": "Updates token validation.",
+  "diff": "diff --git a/src/auth.py b/src/auth.py\n--- a/src/auth.py\n+++ b/src/auth.py\n@@ -1 +1 @@\n-return token.valid\n+return token.active"
+}

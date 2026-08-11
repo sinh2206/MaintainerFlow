@@ -1,0 +1,9 @@
+{
+  "repository": {"github_id": 1, "owner": "example", "name": "demo"},
+  "number": 10,
+  "base_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "head_sha": "5555555555555555555555555555555555555555",
+  "title": "Malformed diff fixture",
+  "body": "Parser must fail safe.",
+  "diff": "this is not a unified diff"
+}

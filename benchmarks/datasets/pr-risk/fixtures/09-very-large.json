@@ -1,0 +1,12 @@
+{
+  "repository": {"github_id": 1, "owner": "example", "name": "demo"},
+  "number": 9,
+  "base_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "head_sha": "4444444444444444444444444444444444444444",
+  "title": "Large generated core update",
+  "body": "More than one thousand changed lines.",
+  "diff": "diff --git a/src/large.py b/src/large.py\n--- a/src/large.py\n+++ b/src/large.py\n@@ -1 +1 @@\n-old\n+new",
+  "changed_files": [
+    {"path": "src/large.py", "change_type": "modified", "additions": 1200, "deletions": 10}
+  ]
+}

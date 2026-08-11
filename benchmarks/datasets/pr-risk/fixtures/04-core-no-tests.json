@@ -1,0 +1,9 @@
+{
+  "repository": {"github_id": 1, "owner": "example", "name": "demo"},
+  "number": 4,
+  "base_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "head_sha": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  "title": "Change parser fallback",
+  "body": "No test included.",
+  "diff": "diff --git a/src/parser.py b/src/parser.py\n--- a/src/parser.py\n+++ b/src/parser.py\n@@ -1 +1 @@\n-return None\n+return {}"
+}

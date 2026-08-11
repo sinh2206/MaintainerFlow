@@ -1,0 +1,9 @@
+{
+  "repository": {"github_id": 1, "owner": "example", "name": "demo"},
+  "number": 2,
+  "base_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "head_sha": "cccccccccccccccccccccccccccccccccccccccc",
+  "title": "Fix docs typo",
+  "body": "Spelling only.",
+  "diff": "diff --git a/docs/setup.rst b/docs/setup.rst\n--- a/docs/setup.rst\n+++ b/docs/setup.rst\n@@ -3 +3 @@\n-Instalation\n+Installation"
+}

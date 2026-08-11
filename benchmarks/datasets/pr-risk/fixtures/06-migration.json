@@ -1,0 +1,9 @@
+{
+  "repository": {"github_id": 1, "owner": "example", "name": "demo"},
+  "number": 6,
+  "base_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "head_sha": "1111111111111111111111111111111111111111",
+  "title": "Add account migration",
+  "body": "Adds a required database column.",
+  "diff": "diff --git a/migrations/versions/002_account.py b/migrations/versions/002_account.py\nnew file mode 100644\n--- /dev/null\n+++ b/migrations/versions/002_account.py\n@@ -0,0 +1 @@\n+op.add_column('account', sa.Column('active', sa.Boolean()))"
+}

@@ -1,0 +1,9 @@
+{
+  "repository": {"github_id": 1, "owner": "example", "name": "demo"},
+  "number": 8,
+  "base_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "head_sha": "3333333333333333333333333333333333333333",
+  "title": "Rename internal helpers",
+  "body": "Behavior-preserving refactor with tests.",
+  "diff": "diff --git a/src/a.py b/src/a.py\n--- a/src/a.py\n+++ b/src/a.py\n@@ -1 +1 @@\n-old_a()\n+new_a()\ndiff --git a/src/b.py b/src/b.py\n--- a/src/b.py\n+++ b/src/b.py\n@@ -1 +1 @@\n-old_b()\n+new_b()\ndiff --git a/src/c.py b/src/c.py\n--- a/src/c.py\n+++ b/src/c.py\n@@ -1 +1 @@\n-old_c()\n+new_c()\ndiff --git a/tests/test_refactor.py b/tests/test_refactor.py\n--- a/tests/test_refactor.py\n+++ b/tests/test_refactor.py\n@@ -1 +1 @@\n-assert old_a()\n+assert new_a()"
+}

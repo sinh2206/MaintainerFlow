@@ -1,0 +1,17 @@
+{
+  "version": "1",
+  "license": "CC0-1.0",
+  "source": "Synthetic fixtures created for MaintainerFlow deterministic evaluation.",
+  "fixtures": [
+    {"id": "readme-only", "path": "fixtures/01-readme-only.json", "levels": ["low"]},
+    {"id": "docs-typo", "path": "fixtures/02-docs-typo.json", "levels": ["low"]},
+    {"id": "core-with-tests", "path": "fixtures/03-core-with-tests.json", "levels": ["low", "medium"]},
+    {"id": "core-no-tests", "path": "fixtures/04-core-no-tests.json", "levels": ["medium", "high"], "evidence": "missing_tests"},
+    {"id": "authentication", "path": "fixtures/05-authentication.json", "levels": ["high"], "evidence": "authentication_change"},
+    {"id": "migration", "path": "fixtures/06-migration.json", "levels": ["high"], "evidence": "migration_change"},
+    {"id": "major-dependency", "path": "fixtures/07-major-dependency.json", "levels": ["medium", "high"], "evidence": "major_dependency"},
+    {"id": "wide-refactor", "path": "fixtures/08-wide-refactor.json", "levels": ["low", "medium"]},
+    {"id": "very-large", "path": "fixtures/09-very-large.json", "levels": ["high"], "evidence": "large_diff"},
+    {"id": "malformed", "path": "fixtures/10-malformed.json", "levels": ["low"], "status": "partial"}
+  ]
+}
