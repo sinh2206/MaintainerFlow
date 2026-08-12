@@ -592,7 +592,7 @@ Các ngưỡng F1/Recall ở checkpoint này là **mục tiêu kỹ thuật nộ
 ### Deliverable
 
 **Kết quả kiểm chứng local (2026-08-12):** Macro F1 `1.00`, Duplicate Recall@3 `1.00`,
-MRR `0.875`; `107` test không-E2E và `7` test E2E pass. Migration PostgreSQL
+MRR `0.875`; `108` test không-E2E và `7` test E2E pass. Migration PostgreSQL
 `0003 → 0004 → 0003 → 0004` pass và `alembic check` không phát hiện schema drift.
 
 **Release:** `v0.4.0-repository-intelligence`

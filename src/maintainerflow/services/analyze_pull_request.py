@@ -30,9 +30,21 @@ async def analyze_pull_request(
     repository_id: int | None = None,
     repository_context: RepositoryContext | None = None,
 ) -> AnalysisRun:
+    context_identity = (
+        {
+            "commit_sha": repository_context.commit_sha,
+            "analyzer_version": repository_context.analyzer_version,
+        }
+        if repository_context
+        else None
+    )
     snapshot = create_snapshot(
         source,
-        config={"max_diff_bytes": max_diff_bytes, "store_diff": False},
+        config={
+            "max_diff_bytes": max_diff_bytes,
+            "store_diff": False,
+            "repository_context": context_identity,
+        },
         rules_version=RULES_VERSION,
         prompt_version=PROMPT_VERSION,
         model_version=model_version,
