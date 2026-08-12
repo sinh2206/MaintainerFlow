@@ -50,13 +50,21 @@ class GitHubAppAuthenticator:
         )
 
     async def installation_token(
-        self, installation_id: int, *, repository_id: int | None = None
+        self,
+        installation_id: int,
+        *,
+        repository_id: int | None = None,
+        issues_read: bool = False,
+        checks_write: bool = True,
     ) -> SecretStr:
         owned_client = self.client is None
         client = self.client or httpx.AsyncClient()
-        body: dict[str, object] = {
-            "permissions": {"contents": "read", "pull_requests": "read", "checks": "write"}
-        }
+        permissions = {"contents": "read", "pull_requests": "read"}
+        if checks_write:
+            permissions["checks"] = "write"
+        if issues_read:
+            permissions["issues"] = "read"
+        body: dict[str, object] = {"permissions": permissions}
         if repository_id is not None:
             body["repository_ids"] = [repository_id]
         try:

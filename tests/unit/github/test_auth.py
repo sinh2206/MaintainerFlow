@@ -36,7 +36,10 @@ def test_rejects_body_changed_by_one_byte() -> None:
 
 
 @pytest.mark.asyncio
-async def test_installation_token_uses_minimal_scoped_permissions() -> None:
+@pytest.mark.parametrize(("issues_read", "checks_write"), [(False, True), (True, False)])
+async def test_installation_token_uses_minimal_scoped_permissions(
+    issues_read: bool, checks_write: bool
+) -> None:
     private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     pem = private_key.private_bytes(
         serialization.Encoding.PEM,
@@ -50,13 +53,23 @@ async def test_installation_token_uses_minimal_scoped_permissions() -> None:
             options={"verify_signature": False},
         )
         assert claims["iss"] == "123"
+        permissions = {"contents": "read", "pull_requests": "read"}
+        if checks_write:
+            permissions["checks"] = "write"
+        if issues_read:
+            permissions["issues"] = "read"
         assert json.loads(request.content) == {
-            "permissions": {"contents": "read", "pull_requests": "read", "checks": "write"},
+            "permissions": permissions,
             "repository_ids": [456],
         }
         return httpx.Response(201, json={"token": "installation-token"})
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as client:
         auth = GitHubAppAuthenticator(123, SecretStr(pem), client=client)
-        token = await auth.installation_token(7, repository_id=456)
+        token = await auth.installation_token(
+            7,
+            repository_id=456,
+            issues_read=issues_read,
+            checks_write=checks_write,
+        )
     assert token.get_secret_value() == "installation-token"

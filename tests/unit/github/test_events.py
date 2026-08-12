@@ -1,7 +1,7 @@
 import pytest
 
 from maintainerflow.core.errors import InvalidEventPayloadError, UnsupportedEventError
-from maintainerflow.core.schemas import CheckRunFeedbackEnvelope
+from maintainerflow.core.schemas import CheckRunFeedbackEnvelope, IssueEventEnvelope
 from maintainerflow.github.events import parse_event
 
 
@@ -19,7 +19,7 @@ def test_parses_supported_pull_request_actions(
 
 @pytest.mark.parametrize(
     ("event", "action"),
-    [("issues", "opened"), ("pull_request", "closed"), ("push", None)],
+    [("issues", "closed"), ("pull_request", "closed"), ("push", None)],
 )
 def test_rejects_unsupported_events(
     github_payload: dict[str, object], event: str, action: str | None
@@ -27,6 +27,18 @@ def test_rejects_unsupported_events(
     github_payload["action"] = action
     with pytest.raises(UnsupportedEventError):
         parse_event(event, github_payload)
+
+
+def test_parses_issue_opened(github_payload: dict[str, object]) -> None:
+    github_payload.pop("pull_request")
+    github_payload["issue"] = {"id": 991, "number": 42}
+
+    event = parse_event("issues", github_payload)
+
+    assert isinstance(event, IssueEventEnvelope)
+    assert event.event == "issues"
+    assert event.issue.github_id == 991
+    assert event.issue.number == 42
 
 
 def test_rejects_malformed_supported_payload(github_payload: dict[str, object]) -> None:

@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from maintainerflow.core.schemas import EventEnvelope
+from maintainerflow.core.schemas import DeliveryEnvelope
 from maintainerflow.persistence.repositories import DeliveryRepository
 
 logger = logging.getLogger(__name__)
@@ -19,7 +19,7 @@ class RecordDeliveryResult:
 
 async def record_and_enqueue_delivery(
     session: AsyncSession,
-    envelope: EventEnvelope,
+    envelope: DeliveryEnvelope,
     github_delivery_id: str,
     request_id: str,
     enqueue: EnqueueDelivery,

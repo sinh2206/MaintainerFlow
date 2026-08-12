@@ -497,20 +497,20 @@ Issue classification, duplicate search và repository history cần nhiều dữ
 
 #### Issue Triage
 
-- [ ]  Classifier: bug/feature/docs/question/maintenance.
-- [ ]  Label suggestion.
-- [ ]  Priority suggestion.
-- [ ]  Duplicate detection.
-- [ ]  Similar Issue Top-K.
+- [x]  Classifier: bug/feature/docs/question/maintenance.
+- [x]  Label suggestion.
+- [x]  Priority suggestion.
+- [x]  Duplicate detection.
+- [x]  Similar Issue Top-K.
 
 #### Repository Intelligence
 
-- [ ]  Index file tree.
-- [ ]  AST/Tree-sitter parser cho ngôn ngữ đầu tiên: **Python**.
-- [ ]  Import/dependency graph mức module.
-- [ ]  Criticality score cơ bản.
-- [ ]  Xác định test files liên quan.
-- [ ]  Cache repository context theo commit SHA.
+- [x]  Index file tree.
+- [x]  AST/Tree-sitter parser cho ngôn ngữ đầu tiên: **Python**.
+- [x]  Import/dependency graph mức module.
+- [x]  Criticality score cơ bản.
+- [x]  Xác định test files liên quan.
+- [x]  Cache repository context theo commit SHA.
 
 ### Khả năng mở rộng
 
@@ -590,6 +590,10 @@ Các ngưỡng F1/Recall ở checkpoint này là **mục tiêu kỹ thuật nộ
 </aside>
 
 ### Deliverable
+
+**Kết quả kiểm chứng local (2026-08-12):** Macro F1 `1.00`, Duplicate Recall@3 `1.00`,
+MRR `0.875`; `107` test không-E2E và `7` test E2E pass. Migration PostgreSQL
+`0003 → 0004 → 0003 → 0004` pass và `alembic check` không phát hiện schema drift.
 
 **Release:** `v0.4.0-repository-intelligence`
 

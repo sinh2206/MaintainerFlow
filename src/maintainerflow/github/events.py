@@ -5,6 +5,8 @@ from maintainerflow.core.schemas import (
     CheckRunFeedbackEnvelope,
     EventEnvelope,
     InstallationRef,
+    IssueEventEnvelope,
+    IssueRef,
     JsonObject,
     PullRequestRef,
     RepositoryRef,
@@ -14,7 +16,9 @@ SUPPORTED_ACTIONS = frozenset({"opened", "synchronize"})
 FEEDBACK_ACTIONS = frozenset({"accept", "reject", "useful", "not_useful"})
 
 
-def parse_event(event_name: str, payload: JsonObject) -> EventEnvelope | CheckRunFeedbackEnvelope:
+def parse_event(
+    event_name: str, payload: JsonObject
+) -> EventEnvelope | IssueEventEnvelope | CheckRunFeedbackEnvelope:
     action = payload.get("action")
     if event_name == "check_run" and action == "requested_action":
         try:
@@ -44,6 +48,23 @@ def parse_event(event_name: str, payload: JsonObject) -> EventEnvelope | CheckRu
             raise
         except (KeyError, TypeError, ValueError, ValidationError) as exc:
             raise InvalidEventPayloadError("invalid check_run payload") from exc
+    if event_name == "issues" and action == "opened":
+        try:
+            repository = payload["repository"]
+            owner = repository["owner"]
+            installation = payload["installation"]
+            issue = payload["issue"]
+            return IssueEventEnvelope(
+                event="issues",
+                action="opened",
+                repository=RepositoryRef(
+                    github_id=repository["id"], owner=owner["login"], name=repository["name"]
+                ),
+                installation=InstallationRef(github_id=installation["id"]),
+                issue=IssueRef(github_id=issue["id"], number=issue["number"]),
+            )
+        except (KeyError, TypeError, ValidationError) as exc:
+            raise InvalidEventPayloadError("invalid issues payload") from exc
     if event_name != "pull_request" or action not in SUPPORTED_ACTIONS:
         raise UnsupportedEventError(f"unsupported GitHub event: {event_name}.{action}")
 

@@ -21,6 +21,10 @@ def settings(**overrides: object) -> Settings:
         {"workflow_enabled": True, "github_private_key": ""},
         {"ai_enabled": True, "gemini_api_key": ""},
         {"check_publish_enabled": True},
+        {"issue_triage_enabled": True},
+        {"repository_intelligence_enabled": True},
+        {"issue_store_body": True},
+        {"repository_store_source_code": True},
     ],
 )
 def test_enabled_features_require_credentials_and_workflow(

@@ -33,6 +33,12 @@ class Settings(BaseSettings):
     workflow_enabled: bool = False
     check_publish_enabled: bool = False
     check_mode: Literal["shadow", "suggestion"] = "shadow"
+    issue_triage_enabled: bool = False
+    repository_intelligence_enabled: bool = False
+    repository_store_source_code: bool = False
+    issue_store_body: bool = False
+    intelligence_retention_days: int = Field(default=30, ge=1, le=365)
+    github_history_rate_limit_floor: int = Field(default=100, ge=0, le=5_000)
     outbox_lease_seconds: int = Field(default=60, ge=10, le=3600)
     outbox_batch_size: int = Field(default=20, ge=1, le=100)
     outbox_max_attempts: int = Field(default=5, ge=1, le=20)
@@ -71,6 +77,18 @@ class Settings(BaseSettings):
             raise ValueError("github_private_key is required when workflow_enabled=true")
         if self.check_publish_enabled and not self.workflow_enabled:
             raise ValueError("workflow_enabled must be true when check publishing is enabled")
+        if self.issue_triage_enabled and not self.workflow_enabled:
+            raise ValueError("workflow_enabled must be true when issue triage is enabled")
+        if self.repository_intelligence_enabled and not self.workflow_enabled:
+            raise ValueError(
+                "workflow_enabled must be true when repository intelligence is enabled"
+            )
+        if self.issue_store_body and not self.issue_triage_enabled:
+            raise ValueError("issue_triage_enabled must be true when storing issue bodies")
+        if self.repository_store_source_code and not self.repository_intelligence_enabled:
+            raise ValueError(
+                "repository_intelligence_enabled must be true when storing source code"
+            )
         return self
 
 

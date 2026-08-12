@@ -1,15 +1,18 @@
 # MaintainerFlow
 
 MaintainerFlow turns GitHub pull-request webhooks into safe, evidence-backed, non-blocking Check
-Runs. The current `v0.3.0` workflow combines:
+Runs and shadow-mode Issue triage. The current `v0.4.0` workflow combines:
 
 - **CP1 — ingestion:** signed, idempotent GitHub webhook delivery and recovery.
 - **CP2 — intelligence:** reproducible summary, risk, evidence, suggested tests, and review focus.
 - **CP3 — publishing:** policy-gated GitHub Checks through a leased transactional outbox.
+- **CP4 — repository intelligence:** Issue classification, priority/label suggestions, lexical
+  duplicate ranking, Python AST/dependency context, and repository-history evidence.
 
 ```text
 GitHub webhook → API → PostgreSQL delivery → Dramatiq worker → PR analysis
                → analysis + audit + outbox → GitHub Check queued/in_progress/completed
+               ↘ Issue triage + repository cache → suggestion audit (no GitHub write)
 ```
 
 The default `shadow` mode is neutral and cannot merge, close, label, release, edit branches, or
@@ -104,10 +107,12 @@ Set only these repository permissions:
 | Contents | Read-only |
 | Pull requests | Read-only |
 | Checks | Read and write |
+| Issues | Read-only |
 
 Subscribe only to these events:
 
 - **Pull request** — MaintainerFlow handles `opened` and `synchronize`.
+- **Issues** — MaintainerFlow handles `opened` only.
 - **Check run** — MaintainerFlow handles feedback-only `requested_action` events.
 
 After creating the App:
@@ -131,11 +136,22 @@ MAINTAINERFLOW_GITHUB_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----\n...\n-----EN
 MAINTAINERFLOW_WORKFLOW_ENABLED=true
 MAINTAINERFLOW_CHECK_PUBLISH_ENABLED=true
 MAINTAINERFLOW_CHECK_MODE=shadow
+MAINTAINERFLOW_ISSUE_TRIAGE_ENABLED=true
+MAINTAINERFLOW_REPOSITORY_INTELLIGENCE_ENABLED=true
+MAINTAINERFLOW_INTELLIGENCE_RETENTION_DAYS=30
+MAINTAINERFLOW_ISSUE_STORE_BODY=false
+MAINTAINERFLOW_REPOSITORY_STORE_SOURCE_CODE=false
 ```
 
 GitHub may generate a `BEGIN PRIVATE KEY` header instead; preserve the downloaded header and
 footer exactly. At runtime, installation tokens are restricted again to the event repository and
-to `contents:read`, `pull_requests:read`, and `checks:write`.
+to the event repository. PR publishing requests `contents:read`, `pull_requests:read`, and
+`checks:write`; Issue triage requests `contents:read`, `pull_requests:read`, and `issues:read`
+without Checks write permission.
+
+Issue bodies and repository source are processed transiently but not persisted by default. Enabling
+either storage option is an explicit privacy decision; cached intelligence and triage records expire
+after `MAINTAINERFLOW_INTELLIGENCE_RETENTION_DAYS`.
 
 ### 4. Optionally enable Gemini
 
@@ -165,7 +181,7 @@ docker compose ps
 docker compose logs migrate worker --tail 100
 ```
 
-Expected migration head: `0003_checks_outbox_audit`. Check it directly with:
+Expected migration head: `0004_issue_repository_context`. Check it directly with:
 
 ```powershell
 docker compose exec -T db psql -U maintainerflow -d maintainerflow -Atc `
@@ -183,6 +199,8 @@ In the repository where the App is installed:
 5. In `shadow` mode, confirm its conclusion is neutral and it shows risk, suggested tests, and
    review focus.
 6. Push another commit and confirm the `synchronize` event creates one Check for the new head SHA.
+7. Open an issue and confirm one `issue.triage.suggested` audit record is created without a label,
+   close, assign, comment, or Check Run side effect.
 
 Inspect local persistence without exposing report contents:
 
@@ -195,6 +213,9 @@ docker compose exec -T db psql -U maintainerflow -d maintainerflow -c `
 
 docker compose exec -T db psql -U maintainerflow -d maintainerflow -c `
   "SELECT event_type,status,attempts,last_error FROM outbox_events ORDER BY id DESC LIMIT 10;"
+
+docker compose exec -T db psql -U maintainerflow -d maintainerflow -c `
+  "SELECT issue_number,classification,confidence,priority FROM issue_analyses ORDER BY id DESC LIMIT 10;"
 ```
 
 Expected final states are `deliveries.status=completed`, `analyses.publish_status=completed`, and
@@ -209,10 +230,13 @@ creating unbounded duplicates.
 | Ingestion only | `MAINTAINERFLOW_WORKFLOW_ENABLED=false`, `MAINTAINERFLOW_CHECK_PUBLISH_ENABLED=false` | Validate CP1 webhook/queue behavior |
 | Full static workflow | `MAINTAINERFLOW_WORKFLOW_ENABLED=true`, `MAINTAINERFLOW_CHECK_PUBLISH_ENABLED=true`, `MAINTAINERFLOW_AI_ENABLED=false` | CP1 → CP2 static → CP3 Check |
 | Full Gemini workflow | Above plus `MAINTAINERFLOW_AI_ENABLED=true` and key | Static report plus validated Gemini signals |
+| Issue triage | `WORKFLOW_ENABLED=true`, `ISSUE_TRIAGE_ENABLED=true` | Store shadow suggestions/audit; no GitHub write |
+| Repository context | Above plus `REPOSITORY_INTELLIGENCE_ENABLED=true` | Cache tree/AST/graph/history by commit SHA and enrich PR risk |
 
 `MAINTAINERFLOW_CHECK_PUBLISH_ENABLED=true` is rejected unless
-`MAINTAINERFLOW_WORKFLOW_ENABLED=true`. New installations should remain in `shadow` mode until live
-behavior has been reviewed on a test repository.
+`MAINTAINERFLOW_WORKFLOW_ENABLED=true`; Issue triage and repository intelligence have the same
+requirement. New installations should remain in `shadow` mode until live behavior has been reviewed
+on a test repository.
 
 ## Local analysis without GitHub
 
@@ -243,14 +267,16 @@ uv run ruff format --check .
 uv run ruff check .
 uv run mypy src/maintainerflow
 uv run pytest -m "not e2e"
+uv run python benchmarks/runners/issue_triage.py
 uv run pytest tests/e2e/test_cli_analyze.py `
   tests/e2e/test_pull_request_check.py `
   tests/e2e/test_ai_outage.py `
   tests/e2e/test_prompt_injection.py -m e2e
 ```
 
-The integration contract test covers the complete CP1 → CP2 → CP3 boundary, including repository-
-scoped authentication, persisted analysis, outbox commands, Check identity, and final output.
+The integration tests cover CP1 → CP2 → CP3 and the CP1 → CP4 Issue boundary. CP4 confirms
+repository-scoped read permissions, suggestions/audit persistence, cache versioning, retention, and
+the absence of Issue write/outbox side effects.
 
 With Docker running, test health and real PostgreSQL delivery handling:
 
@@ -319,9 +345,11 @@ those local volumes; use it only when you intentionally want a clean database.
 ## Security and privacy boundary
 
 - Webhook HMAC-SHA256 is checked against the raw body before JSON parsing.
-- Only supported PR and feedback events enter business logic.
+- Only supported PR, Issue-opened, and feedback events enter business logic.
 - Redis messages contain only an internal delivery ID.
 - Full diffs are analyzed transiently and are not persisted.
+- Issue bodies and source archives are not persisted unless their separate opt-in settings are true;
+  CP4 records have bounded retention and repository-scoped deletion paths.
 - Secret-like report content is redacted before database persistence and GitHub rendering.
 - Annotations require a safe changed-file path, line, provenance, and confidence.
 - Outbox leases, unique idempotency keys, bounded retries, and dead letters prevent retry storms.
@@ -339,6 +367,7 @@ terminate HTTPS at a trusted proxy, back up PostgreSQL, monitor dead letters, an
 - [Testing CP1](docs/testing-checkpoint-1.md)
 - [Testing CP2](docs/testing-checkpoint-2.md)
 - [Testing CP3](docs/testing-checkpoint-3.md)
+- [Testing CP4](docs/testing-checkpoint-4.md)
 - [GitHub App permissions](https://docs.github.com/en/apps/creating-github-apps/registering-a-github-app/choosing-permissions-for-a-github-app)
 - [GitHub App webhooks](https://docs.github.com/en/apps/creating-github-apps/registering-a-github-app/using-webhooks-with-github-apps)
 - [Gemini latest models](https://ai.google.dev/gemini-api/docs/latest-model)

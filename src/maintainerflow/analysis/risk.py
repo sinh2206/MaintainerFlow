@@ -1,12 +1,15 @@
 import re
 from dataclasses import dataclass
 from pathlib import PurePosixPath
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
 from maintainerflow.analysis.diff import ParsedDiff
 from maintainerflow.analysis.evidence import deduplicate_evidence
 from maintainerflow.core.enums import RiskLevel
 from maintainerflow.core.schemas import Evidence, Risk
+
+if TYPE_CHECKING:
+    from maintainerflow.analysis.repository import RepositoryContext
 
 RULES_VERSION = "static-v1"
 DOC_SUFFIXES = {".md", ".rst", ".txt", ".adoc"}
@@ -141,8 +144,34 @@ def level_for_score(score: float) -> RiskLevel:
 def assess_risk(
     parsed: ParsedDiff,
     rules: tuple[RiskRule, ...] = (PathRule(), TestCoverageRule(), DependencyRule(), SizeRule()),
+    repository_context: "RepositoryContext | None" = None,
 ) -> RiskAssessment:
-    evidence = deduplicate_evidence([item for rule in rules for item in rule.collect(parsed)])
+    collected = [item for rule in rules for item in rule.collect(parsed)]
+    related_tests: list[str] = []
+    if repository_context:
+        changed_paths = {file.path for file in parsed.files}
+        for path in changed_paths:
+            criticality = repository_context.criticality_for_path(path)
+            if criticality >= 0.5:
+                collected.append(
+                    _evidence(
+                        "repository_criticality",
+                        f"Repository graph marks this module as central ({criticality:.2f}).",
+                        2,
+                        path,
+                    )
+                )
+            module = next(
+                (item.module for item in repository_context.modules if item.path == path), None
+            )
+            if module:
+                related_tests.extend(repository_context.related_tests.get(module, ()))
+        collected.extend(
+            item.model_copy(update={"metadata": {**item.metadata, "weight": 1.5}})
+            for item in repository_context.history
+            if item.path in changed_paths
+        )
+    evidence = deduplicate_evidence(collected)
     docs_only = bool(parsed.files) and all(_is_docs(file.path) for file in parsed.files)
     if docs_only:
         score = 1.0
@@ -165,6 +194,7 @@ def assess_risk(
         tests.append("Test migration upgrade, downgrade, and data preservation.")
     if kinds & {"dependency_change", "major_dependency"}:
         tests.append("Run dependency compatibility and application smoke tests.")
+    tests.extend(f"Run related repository test: {path}" for path in sorted(set(related_tests)))
     return RiskAssessment(
         Risk(score=score, level=level_for_score(score), confidence=round(max(0.2, confidence), 2)),
         evidence,

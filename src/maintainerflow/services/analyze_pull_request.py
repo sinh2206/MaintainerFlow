@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from maintainerflow.ai.base import AIAnalysisInput, AIProvider, AIProviderError
 from maintainerflow.analysis.diff import ParsedDiff, parse_unified_diff
 from maintainerflow.analysis.report import build_report
+from maintainerflow.analysis.repository import RepositoryContext
 from maintainerflow.analysis.risk import RULES_VERSION, assess_risk
 from maintainerflow.analysis.snapshot import create_snapshot
 from maintainerflow.core.schemas import AnalysisResult, AnalysisSnapshot, PullRequestSource
@@ -27,6 +28,7 @@ async def analyze_pull_request(
     ai_provider: AIProvider | None = None,
     repository: AnalysisRepository | None = None,
     repository_id: int | None = None,
+    repository_context: RepositoryContext | None = None,
 ) -> AnalysisRun:
     snapshot = create_snapshot(
         source,
@@ -52,7 +54,7 @@ async def analyze_pull_request(
             parsed.truncated,
             parsed.limitations,
         )
-    assessment = assess_risk(parsed)
+    assessment = assess_risk(parsed, repository_context=repository_context)
     ai_result = None
     ai_error = None
     if ai_provider:

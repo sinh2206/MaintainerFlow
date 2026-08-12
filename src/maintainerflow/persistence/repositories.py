@@ -10,7 +10,7 @@ from maintainerflow.core.enums import AnalysisStatus, DeliveryStatus, RiskLevel
 from maintainerflow.core.schemas import (
     AnalysisResult,
     AnalysisSnapshot,
-    EventEnvelope,
+    DeliveryEnvelope,
     Evidence,
     Risk,
 )
@@ -53,7 +53,7 @@ class DeliveryRepository:
             return found
 
     async def _get_or_create_repository(
-        self, envelope: EventEnvelope, installation: GitHubInstallation
+        self, envelope: DeliveryEnvelope, installation: GitHubInstallation
     ) -> Repository:
         github_id = envelope.repository.github_id
         found = await self.session.scalar(
@@ -92,7 +92,7 @@ class DeliveryRepository:
     async def create(
         self,
         github_delivery_id: str,
-        envelope: EventEnvelope,
+        envelope: DeliveryEnvelope,
         request_id: str,
     ) -> tuple[Delivery, bool]:
         existing = await self.get_by_github_id(github_delivery_id)
@@ -388,6 +388,7 @@ class AuditRepository:
         *,
         repository_id: int | None,
         analysis_id: int | None,
+        issue_analysis_id: int | None = None,
         payload: dict[str, object],
         actor_id: int | None = None,
         actor_login: str | None = None,
@@ -396,6 +397,7 @@ class AuditRepository:
             event_type=event_type,
             repository_id=repository_id,
             analysis_id=analysis_id,
+            issue_analysis_id=issue_analysis_id,
             actor_id=actor_id,
             actor_login=actor_login,
             payload=payload,

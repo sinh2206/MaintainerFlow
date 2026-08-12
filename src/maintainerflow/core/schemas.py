@@ -40,6 +40,26 @@ class EventEnvelope(BaseModel):
     pull_request: PullRequestRef
 
 
+class IssueRef(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    github_id: int = Field(gt=0)
+    number: int = Field(gt=0)
+
+
+class IssueEventEnvelope(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    event: Literal["issues"]
+    action: Literal["opened"]
+    repository: RepositoryRef
+    installation: InstallationRef
+    issue: IssueRef
+
+
+DeliveryEnvelope = EventEnvelope | IssueEventEnvelope
+
+
 class WebhookResponse(BaseModel):
     status: Literal["accepted", "duplicate", "ignored"]
     delivery_id: int | None = None

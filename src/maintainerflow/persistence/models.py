@@ -171,15 +171,104 @@ class OutboxEvent(Base):
 
 class AuditEvent(Base):
     __tablename__ = "audit_events"
-    __table_args__ = (Index("ix_audit_analysis_type", "analysis_id", "event_type"),)
+    __table_args__ = (
+        Index("ix_audit_analysis_type", "analysis_id", "event_type"),
+        Index("ix_audit_issue_analysis_type", "issue_analysis_id", "event_type"),
+    )
 
     id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True, autoincrement=True)
     event_type: Mapped[str] = mapped_column(String(64), nullable=False)
     repository_id: Mapped[int | None] = mapped_column(ForeignKey("repositories.id"))
     analysis_id: Mapped[int | None] = mapped_column(ForeignKey("analyses.id"))
+    issue_analysis_id: Mapped[int | None] = mapped_column(
+        ForeignKey("issue_analyses.id", ondelete="SET NULL")
+    )
     actor_id: Mapped[int | None] = mapped_column(BigInteger)
     actor_login: Mapped[str | None] = mapped_column(String(255))
     payload: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class RepositoryIndexRecord(Base):
+    __tablename__ = "repository_indexes"
+    __table_args__ = (
+        UniqueConstraint(
+            "repository_id", "commit_sha", "analyzer_version", name="uq_repository_index_cache"
+        ),
+        Index("ix_repository_indexes_expiry", "expires_at"),
+    )
+
+    id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True, autoincrement=True)
+    repository_id: Mapped[int] = mapped_column(
+        ForeignKey("repositories.id", ondelete="CASCADE"), nullable=False
+    )
+    commit_sha: Mapped[str] = mapped_column(String(64), nullable=False)
+    analyzer_version: Mapped[str] = mapped_column(String(128), nullable=False)
+    file_tree: Mapped[list[str]] = mapped_column(JSON, nullable=False)
+    modules: Mapped[list[dict[str, Any]]] = mapped_column(JSON, nullable=False)
+    dependency_graph: Mapped[dict[str, list[str]]] = mapped_column(JSON, nullable=False)
+    criticality: Mapped[dict[str, float]] = mapped_column(JSON, nullable=False)
+    related_tests: Mapped[dict[str, list[str]]] = mapped_column(JSON, nullable=False)
+    limitations: Mapped[list[str]] = mapped_column(JSON, nullable=False)
+    source_archive: Mapped[dict[str, str] | None] = mapped_column(JSON)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class IssueAnalysisRecord(Base):
+    __tablename__ = "issue_analyses"
+    __table_args__ = (
+        UniqueConstraint(
+            "repository_id", "github_issue_id", "source_hash", name="uq_issue_analysis_source"
+        ),
+        Index("ix_issue_analyses_expiry", "expires_at"),
+    )
+
+    id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True, autoincrement=True)
+    repository_id: Mapped[int] = mapped_column(
+        ForeignKey("repositories.id", ondelete="CASCADE"), nullable=False
+    )
+    github_issue_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    issue_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    source_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    classification: Mapped[str] = mapped_column(String(32), nullable=False)
+    confidence: Mapped[float] = mapped_column(Float, nullable=False)
+    evidence_spans: Mapped[list[dict[str, Any]]] = mapped_column(JSON, nullable=False)
+    priority: Mapped[str] = mapped_column(String(16), nullable=False)
+    priority_score: Mapped[float] = mapped_column(Float, nullable=False)
+    label_suggestions: Mapped[list[dict[str, Any]]] = mapped_column(JSON, nullable=False)
+    similar_issues: Mapped[list[dict[str, Any]]] = mapped_column(JSON, nullable=False)
+    limitations: Mapped[list[str]] = mapped_column(JSON, nullable=False)
+    body_text: Mapped[str | None] = mapped_column(Text)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class HistoricalEvidenceRecord(Base):
+    __tablename__ = "historical_evidence"
+    __table_args__ = (
+        UniqueConstraint(
+            "repository_index_id", "kind", "source_id", "path", name="uq_history_source"
+        ),
+        Index("ix_historical_evidence_expiry", "expires_at"),
+    )
+
+    id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True, autoincrement=True)
+    repository_index_id: Mapped[int] = mapped_column(
+        ForeignKey("repository_indexes.id", ondelete="CASCADE"), nullable=False
+    )
+    kind: Mapped[str] = mapped_column(String(64), nullable=False)
+    source_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    source_url: Mapped[str] = mapped_column(String(2_048), nullable=False)
+    path: Mapped[str | None] = mapped_column(String(4_096))
+    payload: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

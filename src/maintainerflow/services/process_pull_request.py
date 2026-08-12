@@ -1,6 +1,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from maintainerflow.ai.base import AIProvider
+from maintainerflow.analysis.repository import RepositoryContext
 from maintainerflow.config import Settings
 from maintainerflow.core.schemas import EventEnvelope, PullRequestSource
 from maintainerflow.persistence.repositories import AnalysisRepository, DeliveryRepository
@@ -17,6 +18,7 @@ async def persist_pull_request_analysis(
     source: PullRequestSource,
     settings: Settings,
     ai_provider: AIProvider | None = None,
+    repository_context: RepositoryContext | None = None,
 ) -> AnalysisRun:
     run = await analyze_pull_request(
         source,
@@ -25,6 +27,7 @@ async def persist_pull_request_analysis(
         ai_provider=ai_provider,
         repository=AnalysisRepository(session),
         repository_id=repository_id,
+        repository_context=repository_context,
     )
     if run.analysis_id is None:
         raise RuntimeError("persisted analysis has no ID")
