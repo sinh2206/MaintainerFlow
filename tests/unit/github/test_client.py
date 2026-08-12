@@ -4,7 +4,7 @@ import httpx
 import pytest
 from pydantic import SecretStr
 
-from maintainerflow.core.errors import TransientDependencyError
+from maintainerflow.core.errors import PermanentDependencyError, TransientDependencyError
 from maintainerflow.github.client import GitHubClient
 
 
@@ -65,4 +65,13 @@ async def test_rate_limit_is_typed_transient_failure() -> None:
     async with httpx.AsyncClient(transport=transport) as client:
         github = GitHubClient(SecretStr("token"), client=client)
         with pytest.raises(TransientDependencyError):
+            await github.fetch_pull_request("owner", "repo", 7)
+
+
+@pytest.mark.asyncio
+async def test_other_4xx_is_typed_permanent_failure() -> None:
+    transport = httpx.MockTransport(lambda _: httpx.Response(404))
+    async with httpx.AsyncClient(transport=transport) as client:
+        github = GitHubClient(SecretStr("token"), client=client)
+        with pytest.raises(PermanentDependencyError):
             await github.fetch_pull_request("owner", "repo", 7)

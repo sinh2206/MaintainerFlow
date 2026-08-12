@@ -1,5 +1,5 @@
 from functools import lru_cache
-from typing import Self
+from typing import Literal, Self
 
 from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     github_app_id: int = Field(gt=0)
     github_webhook_secret: SecretStr = Field(min_length=16)
+    github_private_key: SecretStr | None = None
+    github_api_url: str = "https://api.github.com"
+    github_api_version: str = "2026-03-10"
     database_url: str
     redis_url: str
     delivery_lease_seconds: int = Field(default=60, ge=10, le=3600)
@@ -27,6 +30,12 @@ class Settings(BaseSettings):
     ai_timeout_seconds: float = Field(default=30, gt=0, le=300)
     analysis_store_diff: bool = False
     analysis_max_diff_bytes: int = Field(default=1_000_000, ge=10_000, le=10_000_000)
+    workflow_enabled: bool = False
+    check_publish_enabled: bool = False
+    check_mode: Literal["shadow", "suggestion"] = "shadow"
+    outbox_lease_seconds: int = Field(default=60, ge=10, le=3600)
+    outbox_batch_size: int = Field(default=20, ge=1, le=100)
+    outbox_max_attempts: int = Field(default=5, ge=1, le=20)
 
     @field_validator("database_url")
     @classmethod
@@ -53,6 +62,10 @@ class Settings(BaseSettings):
     def validate_ai_credentials(self) -> Self:
         if self.ai_enabled and self.gemini_api_key is None:
             raise ValueError("gemini_api_key is required when ai_enabled=true")
+        if self.workflow_enabled and self.github_private_key is None:
+            raise ValueError("github_private_key is required when workflow_enabled=true")
+        if self.check_publish_enabled and not self.workflow_enabled:
+            raise ValueError("workflow_enabled must be true when check publishing is enabled")
         return self
 
 

@@ -20,3 +20,7 @@ class DuplicateDeliveryError(MaintainerFlowError):
 
 class TransientDependencyError(MaintainerFlowError):
     """A dependency failed and the operation may be retried."""
+
+
+class PermanentDependencyError(MaintainerFlowError):
+    """A dependency rejected an operation that retrying cannot repair."""

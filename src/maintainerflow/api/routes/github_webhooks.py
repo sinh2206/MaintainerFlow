@@ -10,10 +10,11 @@ from maintainerflow.core.errors import (
     InvalidSignatureError,
     UnsupportedEventError,
 )
-from maintainerflow.core.schemas import JsonObject, WebhookResponse
+from maintainerflow.core.schemas import CheckRunFeedbackEnvelope, JsonObject, WebhookResponse
 from maintainerflow.github.auth import verify_webhook_signature
 from maintainerflow.github.events import parse_event
 from maintainerflow.services.process_delivery import record_and_enqueue_delivery
+from maintainerflow.services.record_feedback import record_feedback
 
 router = APIRouter(prefix="/webhooks", tags=["github"])
 
@@ -47,6 +48,11 @@ async def github_webhook(
         raise HTTPException(status_code=400, detail="invalid webhook payload") from exc
     except UnsupportedEventError:
         return WebhookResponse(status="ignored")
+
+    if isinstance(envelope, CheckRunFeedbackEnvelope):
+        async with session.begin():
+            recorded = await record_feedback(session, envelope)
+        return WebhookResponse(status="accepted" if recorded else "ignored")
 
     result = await record_and_enqueue_delivery(
         session=session,

@@ -17,6 +17,7 @@ from maintainerflow.core.schemas import (
 from maintainerflow.persistence.models import (
     AnalysisRecord,
     AnalysisSnapshotRecord,
+    AuditEvent,
     Delivery,
     EvidenceRecord,
     GitHubInstallation,
@@ -130,6 +131,15 @@ class DeliveryRepository:
     async def get(self, delivery_id: int) -> Delivery | None:
         return cast(Delivery | None, await self.session.get(Delivery, delivery_id))
 
+    async def get_repository(self, repository_id: int) -> Repository | None:
+        return cast(Repository | None, await self.session.get(Repository, repository_id))
+
+    async def get_repository_by_github_id(self, github_id: int) -> Repository | None:
+        return cast(
+            Repository | None,
+            await self.session.scalar(select(Repository).where(Repository.github_id == github_id)),
+        )
+
     async def mark_queued(self, delivery_id: int) -> None:
         now = datetime.now(UTC)
         await self.session.execute(
@@ -228,6 +238,19 @@ class AnalysisRepository:
             AnalysisRecord | None,
             await self.session.scalar(
                 select(AnalysisRecord).where(AnalysisRecord.snapshot_id == snapshot_id)
+            ),
+        )
+
+    async def get_record_by_id(self, analysis_id: int) -> AnalysisRecord | None:
+        return cast(AnalysisRecord | None, await self.session.get(AnalysisRecord, analysis_id))
+
+    async def get_repository_id(self, analysis_id: int) -> int | None:
+        return cast(
+            int | None,
+            await self.session.scalar(
+                select(AnalysisSnapshotRecord.repository_id)
+                .join(AnalysisRecord, AnalysisRecord.snapshot_id == AnalysisSnapshotRecord.id)
+                .where(AnalysisRecord.id == analysis_id)
             ),
         )
 
@@ -334,3 +357,49 @@ class AnalysisRepository:
             limitations=tuple(analysis.limitations),
             provider_metadata=analysis.provider_metadata,
         )
+
+    async def mark_publish_queued(self, analysis_id: int) -> None:
+        analysis = await self.get_record_by_id(analysis_id)
+        if analysis:
+            analysis.publish_status = "queued"
+            analysis.publish_error = None
+
+    async def mark_published(self, analysis_id: int, check_id: int) -> None:
+        analysis = await self.get_record_by_id(analysis_id)
+        if analysis:
+            analysis.github_check_id = check_id
+            analysis.publish_status = "completed"
+            analysis.publish_error = None
+
+    async def mark_publish_failed(self, analysis_id: int, error_code: str) -> None:
+        analysis = await self.get_record_by_id(analysis_id)
+        if analysis:
+            analysis.publish_status = "failed_safe"
+            analysis.publish_error = error_code[:128]
+
+
+class AuditRepository:
+    def __init__(self, session: AsyncSession) -> None:
+        self.session = session
+
+    async def record(
+        self,
+        event_type: str,
+        *,
+        repository_id: int | None,
+        analysis_id: int | None,
+        payload: dict[str, object],
+        actor_id: int | None = None,
+        actor_login: str | None = None,
+    ) -> AuditEvent:
+        event = AuditEvent(
+            event_type=event_type,
+            repository_id=repository_id,
+            analysis_id=analysis_id,
+            actor_id=actor_id,
+            actor_login=actor_login,
+            payload=payload,
+        )
+        self.session.add(event)
+        await self.session.flush()
+        return event

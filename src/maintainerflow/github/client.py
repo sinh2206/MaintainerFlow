@@ -5,7 +5,7 @@ from urllib.parse import quote
 import httpx
 from pydantic import SecretStr
 
-from maintainerflow.core.errors import TransientDependencyError
+from maintainerflow.core.errors import PermanentDependencyError, TransientDependencyError
 from maintainerflow.core.schemas import ChangedFile, ChangeType, PullRequestSource, RepositoryRef
 
 STATUS_MAP: dict[str, ChangeType] = {
@@ -37,11 +37,15 @@ class GitHubClient:
         *,
         timeout: float = 20,
         max_pages: int = 20,
+        base_url: str = "https://api.github.com",
+        api_version: str = "2026-03-10",
         client: httpx.AsyncClient | None = None,
     ) -> None:
         self.token = token
         self.timeout = timeout
         self.max_pages = max_pages
+        self.base_url = base_url.rstrip("/")
+        self.api_version = api_version
         self.client = client
 
     @staticmethod
@@ -59,7 +63,7 @@ class GitHubClient:
                 headers={
                     "Accept": accept,
                     "Authorization": f"Bearer {self.token.get_secret_value()}",
-                    "X-GitHub-Api-Version": "2022-11-28",
+                    "X-GitHub-Api-Version": self.api_version,
                 },
                 timeout=self.timeout,
             )
@@ -69,12 +73,13 @@ class GitHubClient:
             raise TransientDependencyError("GitHub API temporarily unavailable")
         if response.status_code == 403 and response.headers.get("x-ratelimit-remaining") == "0":
             raise TransientDependencyError("GitHub API rate limit exhausted")
-        response.raise_for_status()
+        if response.is_error:
+            raise PermanentDependencyError(f"github_http_{response.status_code}")
         return response
 
     async def fetch_pull_request(self, owner: str, repo: str, number: int) -> FetchedPullRequest:
         slug = f"{quote(owner, safe='')}/{quote(repo, safe='')}"
-        base_url = f"https://api.github.com/repos/{slug}"
+        base_url = f"{self.base_url}/repos/{slug}"
         owned_client = self.client is None
         client = self.client or httpx.AsyncClient()
         try:
@@ -129,7 +134,7 @@ class GitHubClient:
 
     async def fetch_file_content(self, owner: str, repo: str, path: str, sha: str) -> bytes:
         slug = f"{quote(owner, safe='')}/{quote(repo, safe='')}"
-        url = f"https://api.github.com/repos/{slug}/contents/{quote(path)}?ref={quote(sha)}"
+        url = f"{self.base_url}/repos/{slug}/contents/{quote(path)}?ref={quote(sha)}"
         owned_client = self.client is None
         client = self.client or httpx.AsyncClient()
         try:

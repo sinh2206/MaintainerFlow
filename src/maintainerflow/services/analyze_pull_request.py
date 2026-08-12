@@ -16,6 +16,7 @@ class AnalysisRun:
     snapshot: AnalysisSnapshot
     result: AnalysisResult
     persisted: bool
+    analysis_id: int | None = None
 
 
 async def analyze_pull_request(
@@ -37,7 +38,8 @@ async def analyze_pull_request(
     if repository:
         existing = await repository.get_result(snapshot.id)
         if existing:
-            return AnalysisRun(snapshot, existing, False)
+            record = await repository.get_record(snapshot.id)
+            return AnalysisRun(snapshot, existing, False, record.id if record else None)
 
     parsed = parse_unified_diff(source.diff, max_bytes=max_diff_bytes)
     if source.changed_files:
@@ -71,8 +73,10 @@ async def analyze_pull_request(
             ai_error = "provider_failure"
     result = build_report(snapshot, parsed, assessment, ai_result=ai_result, ai_error=ai_error)
     persisted = False
+    analysis_id = None
     if repository:
         if repository_id is None:
             raise ValueError("repository_id is required when persistence is enabled")
-        _, persisted = await repository.save(repository_id, snapshot, result)
-    return AnalysisRun(snapshot, result, persisted)
+        record, persisted = await repository.save(repository_id, snapshot, result)
+        analysis_id = record.id
+    return AnalysisRun(snapshot, result, persisted, analysis_id)

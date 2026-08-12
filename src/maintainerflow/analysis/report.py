@@ -4,11 +4,14 @@ from maintainerflow.analysis.evidence import deduplicate_evidence
 from maintainerflow.analysis.risk import RiskAssessment, level_for_score
 from maintainerflow.core.enums import AnalysisStatus
 from maintainerflow.core.policies import apply_confidence_policy
+from maintainerflow.core.sanitize import sanitize_text
 from maintainerflow.core.schemas import AnalysisResult, AnalysisSnapshot, Evidence, Risk
 
 
 def _unique(items: list[str] | tuple[str, ...]) -> tuple[str, ...]:
-    return tuple(dict.fromkeys(item.strip() for item in items if item.strip()))
+    return tuple(
+        dict.fromkeys(sanitize_text(item.strip(), 1_000) for item in items if item.strip())
+    )
 
 
 def build_report(
@@ -32,14 +35,15 @@ def build_report(
     status = AnalysisStatus.PARTIAL if parsed.limitations else AnalysisStatus.COMPLETE
 
     if ai_result:
-        summary = ai_result.output.summary
+        summary = sanitize_text(ai_result.output.summary, 4_000)
         score = round(min(10, max(0, score + ai_result.output.risk_adjustment)), 1)
+        changed_paths = {file.path for file in parsed.files}
         evidence.extend(
             Evidence(
                 kind=signal.kind,
-                path=signal.path,
-                line=signal.line,
-                message=signal.message,
+                path=signal.path if signal.path in changed_paths else None,
+                line=signal.line if signal.path in changed_paths else None,
+                message=sanitize_text(signal.message, 1_000),
                 source=f"gemini:{ai_result.metadata.model}",
                 confidence=signal.confidence,
             )
@@ -67,7 +71,7 @@ def build_report(
     result = AnalysisResult(
         snapshot_id=snapshot.id,
         status=status,
-        summary=summary,
+        summary=sanitize_text(summary, 4_000),
         risk=risk,
         evidence_coverage=round(coverage, 3),
         evidence=normalized,

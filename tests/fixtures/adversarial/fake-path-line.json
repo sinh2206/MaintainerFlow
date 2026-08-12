@@ -1,0 +1,5 @@
+{
+  "path": "../../etc/passwd",
+  "line": 1,
+  "expected": "no-annotation"
+}

@@ -326,16 +326,16 @@ Gọi GitHub API là side effect bên ngoài transaction database: request có t
 
 ### Hành vi bắt buộc
 
-- [ ]  Tạo GitHub Check Run khi bắt đầu phân tích.
-- [ ]  Cập nhật trạng thái `queued → in_progress → completed`.
-- [ ]  Đẩy summary/risk/test suggestion vào Check output.
-- [ ]  Annotation file/line khi có review focus đáng tin cậy.
-- [ ]  Retry khi GitHub API lỗi tạm thời.
-- [ ]  Rate-limit handling.
-- [ ]  Timeout handling cho AI provider.
-- [ ]  Permission scope ở mức tối thiểu.
-- [ ]  Không auto merge/close/release.
-- [ ]  Log sanitization.
+- [x] Tạo GitHub Check Run khi bắt đầu phân tích.
+- [x] Cập nhật trạng thái `queued → in_progress → completed`.
+- [x] Đẩy summary/risk/test suggestion vào Check output.
+- [x] Annotation file/line khi có review focus đáng tin cậy.
+- [x] Retry khi GitHub API lỗi tạm thời.
+- [x] Rate-limit handling.
+- [x] Timeout handling cho AI provider.
+- [x] Permission scope ở mức tối thiểu.
+- [x] Không auto merge/close/release.
+- [x] Log sanitization.
 
 ### Luồng publish chuẩn
 
@@ -440,6 +440,23 @@ Output chỉ là analysis
 ### Deliverable
 
 **Release:** `v0.3.0-github-checks`
+
+### Bằng chứng triển khai hiện tại
+
+- [x] Worker nối CP1 → CP2: delivery được claim, PR được fetch, analysis/snapshot/evidence được lưu
+  nguyên tử, delivery mới chuyển `completed`, rồi publisher outbox được đánh thức.
+- [x] Check start và final là hai command idempotent; Check tạm dùng `delivery:{id}`, kết quả cuối
+  tái sử dụng Check đó và đổi `external_id` thành analysis ID.
+- [x] Outbox có lease, retry/backoff, xử lý 429/5xx/timeout, giới hạn attempt và dead-letter;
+  lỗi 4xx không rate-limit chuyển `failed_safe`.
+- [x] Shadow/suggestion, stale/confidence gate, feedback allowlist và audit append-only đều có test.
+- [x] Report redact secret trước khi lưu; Markdown/path/line không đáng tin không tạo annotation.
+- [x] Automated gate: 70 non-E2E test pass; ba CP3 local E2E pass, gồm năm head SHA, AI outage
+  và prompt injection. Migration `0001 → 0002 → 0003 → downgrade → head` và drift check pass.
+- [ ] Live gate: chưa mở năm PR trên GitHub test repository vì môi trường hiện tại không có GitHub
+  App private key/installation. Làm theo [`docs/testing-checkpoint-3.md`](docs/testing-checkpoint-3.md)
+  trước khi tạo tag release.
+- [ ] Chưa tạo tag `v0.3.0-github-checks`; chỉ tạo sau khi live gate pass.
 
 ---
 

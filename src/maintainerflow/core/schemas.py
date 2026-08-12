@@ -120,3 +120,80 @@ class AnalysisResult(BaseModel):
     review_focus: tuple[str, ...] = ()
     limitations: tuple[str, ...] = ()
     provider_metadata: JsonObject | None = None
+
+
+FeedbackIdentifier = Literal["accept", "reject", "useful", "not_useful"]
+
+
+class CheckRunFeedbackEnvelope(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    event: Literal["check_run"] = "check_run"
+    action: Literal["requested_action"] = "requested_action"
+    repository: RepositoryRef
+    installation: InstallationRef
+    analysis_id: int = Field(gt=0)
+    identifier: FeedbackIdentifier
+    actor_id: int = Field(gt=0)
+    actor_login: str = Field(min_length=1, max_length=255)
+    actor_type: str = Field(min_length=1, max_length=64)
+
+
+class CheckAnnotation(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    path: str = Field(min_length=1, max_length=4096)
+    start_line: int = Field(ge=1)
+    end_line: int = Field(ge=1)
+    annotation_level: Literal["notice", "warning"]
+    title: str = Field(min_length=1, max_length=255)
+    message: str = Field(min_length=1, max_length=1000)
+
+
+class CheckAction(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    label: str = Field(min_length=1, max_length=20)
+    description: str = Field(min_length=1, max_length=40)
+    identifier: FeedbackIdentifier
+
+
+class GitHubCheckStartCommand(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    delivery_id: int = Field(gt=0)
+    installation_id: int = Field(gt=0)
+    repository_github_id: int = Field(gt=0)
+    owner: str = Field(min_length=1, max_length=255)
+    repository: str = Field(min_length=1, max_length=255)
+    head_sha: str = Field(min_length=7, max_length=64)
+    external_id: str = Field(min_length=1, max_length=255)
+
+
+class GitHubCheckCommand(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    analysis_id: int = Field(gt=0)
+    installation_id: int = Field(gt=0)
+    repository_github_id: int = Field(gt=0)
+    owner: str = Field(min_length=1, max_length=255)
+    repository: str = Field(min_length=1, max_length=255)
+    head_sha: str = Field(min_length=7, max_length=64)
+    external_id: str = Field(min_length=1, max_length=255)
+    provisional_external_id: str | None = Field(default=None, max_length=255)
+    conclusion: Literal["success", "neutral"]
+    title: str = Field(min_length=1, max_length=255)
+    summary: str = Field(min_length=1, max_length=65_535)
+    text: str = Field(default="", max_length=65_535)
+    annotations: tuple[CheckAnnotation, ...] = Field(default=(), max_length=50)
+    actions: tuple[CheckAction, ...] = Field(default=(), max_length=3)
+
+
+class CheckPolicyDecision(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    publish: bool
+    mode: Literal["shadow", "suggestion"]
+    conclusion: Literal["success", "neutral"]
+    actions: tuple[FeedbackIdentifier, ...] = ()
+    reason: str
