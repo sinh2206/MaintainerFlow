@@ -60,9 +60,14 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_ai_credentials(self) -> Self:
-        if self.ai_enabled and self.gemini_api_key is None:
+        if self.ai_enabled and (
+            self.gemini_api_key is None or not self.gemini_api_key.get_secret_value().strip()
+        ):
             raise ValueError("gemini_api_key is required when ai_enabled=true")
-        if self.workflow_enabled and self.github_private_key is None:
+        if self.workflow_enabled and (
+            self.github_private_key is None
+            or not self.github_private_key.get_secret_value().strip()
+        ):
             raise ValueError("github_private_key is required when workflow_enabled=true")
         if self.check_publish_enabled and not self.workflow_enabled:
             raise ValueError("workflow_enabled must be true when check publishing is enabled")

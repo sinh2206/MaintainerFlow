@@ -7,6 +7,7 @@ from fastapi import FastAPI, Request
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.responses import Response
 
+from maintainerflow import __version__
 from maintainerflow.api.routes.github_webhooks import router as github_router
 from maintainerflow.api.routes.health import router as health_router
 from maintainerflow.config import Settings, get_settings
@@ -35,7 +36,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         yield
         await app.state.database.dispose()
 
-    application = FastAPI(title="MaintainerFlow", version="0.1.0", lifespan=lifespan)
+    application = FastAPI(title="MaintainerFlow", version=__version__, lifespan=lifespan)
     application.add_middleware(RequestIdMiddleware)
     application.include_router(health_router)
     application.include_router(github_router)

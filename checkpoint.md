@@ -451,7 +451,8 @@ Output chỉ là analysis
   lỗi 4xx không rate-limit chuyển `failed_safe`.
 - [x] Shadow/suggestion, stale/confidence gate, feedback allowlist và audit append-only đều có test.
 - [x] Report redact secret trước khi lưu; Markdown/path/line không đáng tin không tạo annotation.
-- [x] Automated gate: 70 non-E2E test pass; ba CP3 local E2E pass, gồm năm head SHA, AI outage
+- [x] Automated gate: contract test CP1 → CP2 → CP3 và full suite `82/82` pass; CP3 local E2E
+  gồm năm head SHA, AI outage
   và prompt injection. Migration `0001 → 0002 → 0003 → downgrade → head` và drift check pass.
 - [ ] Live gate: chưa mở năm PR trên GitHub test repository vì môi trường hiện tại không có GitHub
   App private key/installation. Làm theo [`docs/testing-checkpoint-3.md`](docs/testing-checkpoint-3.md)
