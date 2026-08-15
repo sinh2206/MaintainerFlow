@@ -1,0 +1,39 @@
+{
+  "repository": "OWNER/maintainerflow-demo",
+  "from_ref": "v0.1.0",
+  "to_ref": "v0.2.0",
+  "compare_url": "https://github.com/OWNER/maintainerflow-demo/compare/v0.1.0...v0.2.0",
+  "pull_requests": [
+    {
+      "github_id": 1001,
+      "number": 1,
+      "title": "feat: add total calculator",
+      "url": "https://github.com/OWNER/maintainerflow-demo/pull/1",
+      "author": "demo-alice",
+      "labels": ["feature"],
+      "changed_files": ["src/demo_calculator.py", "tests/test_demo_calculator.py"]
+    },
+    {
+      "github_id": 1002,
+      "number": 2,
+      "title": "fix: reject negative quantities",
+      "url": "https://github.com/OWNER/maintainerflow-demo/pull/2",
+      "author": "demo-bob",
+      "labels": ["bug"],
+      "changed_files": ["src/demo_calculator.py", "tests/test_demo_calculator.py"]
+    },
+    {
+      "github_id": 1003,
+      "number": 3,
+      "title": "feat!: return decimal totals",
+      "url": "https://github.com/OWNER/maintainerflow-demo/pull/3",
+      "author": "demo-alice",
+      "body": "BREAKING CHANGE: callers must accept Decimal instead of int.",
+      "labels": ["breaking-change", "feature"],
+      "changed_files": ["src/demo_calculator.py", "tests/test_demo_calculator.py"]
+    }
+  ],
+  "limitations": [
+    "Synthetic demonstration input; maintainers must review all breaking-change candidates."
+  ]
+}

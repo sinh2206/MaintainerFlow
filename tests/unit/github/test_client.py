@@ -135,3 +135,98 @@ async def test_history_stops_before_next_request_at_rate_budget() -> None:
 
     assert result.truncated_by_budget
     assert paths == ["/repos/owner/repo/pulls"]
+
+
+@pytest.mark.asyncio
+async def test_release_range_deduplicates_prs_across_commits_and_paginates_files() -> None:
+    def pull() -> dict[str, object]:
+        return {
+            "id": 700,
+            "number": 7,
+            "title": "feat: add release assistant",
+            "html_url": "https://github.test/owner/repo/pull/7",
+            "user": {"login": "alice"},
+            "body": "Release preview",
+            "labels": [{"name": "feature"}],
+            "merged_at": "2026-08-01T00:00:00Z",
+            "merge_commit_sha": "merge7",
+        }
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        headers = {"x-ratelimit-remaining": "500", "x-ratelimit-reset": "1"}
+        if "/compare/" in path:
+            return httpx.Response(
+                200, json={"commits": [{"sha": "c1"}, {"sha": "c2"}]}, headers=headers
+            )
+        if path.endswith(("/commits/c1/pulls", "/commits/c2/pulls")):
+            return httpx.Response(200, json=[pull()], headers=headers)
+        if path.endswith("/pulls/7/files"):
+            page = int(request.url.params["page"])
+            count = 100 if page == 1 else 1
+            return httpx.Response(
+                200,
+                json=[{"filename": f"src/file_{page}_{index}.py"} for index in range(count)],
+                headers=headers,
+            )
+        return httpx.Response(404)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as client:
+        result = await GitHubClient(SecretStr("token"), client=client).fetch_release_range(
+            "owner", "repo", "v0.4.0", "v1.0.0"
+        )
+
+    assert not result.truncated_by_budget
+    assert result.compare_url.endswith("/compare/v0.4.0...v1.0.0")
+    assert len(result.pull_requests) == 1
+    assert result.pull_requests[0].number == 7
+    assert len(result.pull_requests[0].changed_files) == 101
+
+
+@pytest.mark.asyncio
+async def test_release_tags_paginate_and_exclude_drafts_or_missing_tags() -> None:
+    pages: list[int] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        page = int(request.url.params["page"])
+        pages.append(page)
+        if page == 1:
+            rows = [{"tag_name": f"v1.0.{index}", "draft": index == 0} for index in range(100)]
+        else:
+            rows = [
+                {"tag_name": "v0.4.0", "draft": False, "prerelease": True},
+                {"tag_name": "", "draft": False},
+            ]
+        return httpx.Response(200, json=rows, headers={"x-ratelimit-remaining": "500"})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as client:
+        tags = await GitHubClient(SecretStr("token"), client=client).list_release_tags(
+            "owner", "repo"
+        )
+
+    assert pages == [1, 2]
+    assert len(tags) == 100
+    assert "v1.0.0" not in tags
+    assert tags[-1] == "v0.4.0"
+
+
+@pytest.mark.asyncio
+async def test_release_range_honors_budget_before_per_commit_calls() -> None:
+    paths: list[str] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        paths.append(request.url.path)
+        return httpx.Response(
+            200,
+            json={"commits": [{"sha": "c1"}]},
+            headers={"x-ratelimit-remaining": "100"},
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as client:
+        result = await GitHubClient(SecretStr("token"), client=client).fetch_release_range(
+            "owner", "repo", "v0.4.0", "v1.0.0", rate_limit_floor=100
+        )
+
+    assert result.truncated_by_budget
+    assert result.pull_requests == ()
+    assert paths == ["/repos/owner/repo/compare/v0.4.0...v1.0.0"]

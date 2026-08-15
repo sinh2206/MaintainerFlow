@@ -8,6 +8,16 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  MAINTAINERFLOW_GITHUB_APP_ID: "1"
+  MAINTAINERFLOW_GITHUB_WEBHOOK_SECRET: ci-only-secret-value
+  MAINTAINERFLOW_DATABASE_URL: postgresql+asyncpg://maintainerflow:maintainerflow@localhost:5432/maintainerflow
+  MAINTAINERFLOW_REDIS_URL: redis://localhost:6379/0
+
 jobs:
   quality:
     runs-on: ubuntu-latest
@@ -33,30 +43,31 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - name: Checkout source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - name: Install uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
         with:
           enable-cache: true
-      - run: uv sync --frozen --extra dev
-      - run: uv run ruff check .
-      - run: uv run mypy src/maintainerflow
-      - run: uv run pytest -m "not e2e"
-      - run: >-
-          uv run pytest
-          tests/e2e/test_cli_analyze.py
-          tests/e2e/test_pull_request_check.py
-          tests/e2e/test_ai_outage.py
-          tests/e2e/test_prompt_injection.py
-          -m e2e
-      - run: uv run alembic upgrade head
-        env:
-          MAINTAINERFLOW_GITHUB_APP_ID: "1"
-          MAINTAINERFLOW_GITHUB_WEBHOOK_SECRET: ci-only-secret-value
-          MAINTAINERFLOW_DATABASE_URL: postgresql+asyncpg://maintainerflow:maintainerflow@localhost:5432/maintainerflow
-          MAINTAINERFLOW_REDIS_URL: redis://localhost:6379/0
-      - run: uv run alembic check
-        env:
-          MAINTAINERFLOW_GITHUB_APP_ID: "1"
-          MAINTAINERFLOW_GITHUB_WEBHOOK_SECRET: ci-only-secret-value
-          MAINTAINERFLOW_DATABASE_URL: postgresql+asyncpg://maintainerflow:maintainerflow@localhost:5432/maintainerflow
-          MAINTAINERFLOW_REDIS_URL: redis://localhost:6379/0
+      - name: Install locked dependencies
+        run: uv sync --frozen --extra dev
+      - name: Lint and format
+        run: |
+          uv run ruff format --check .
+          uv run ruff check .
+      - name: Type check
+        run: uv run mypy src/maintainerflow
+      - name: Unit and integration tests
+        run: uv run pytest -m "not e2e"
+      - name: Credential-free end-to-end tests
+        run: uv run pytest -m e2e
+      - name: Migrate and detect schema drift
+        run: |
+          uv run alembic upgrade head
+          uv run alembic check
+      - name: Reproduce all benchmark suites
+        run: uv run maintainerflow benchmark --suite all --format json --output benchmark-report.json
+      - name: Static smoke test
+        run: uv run python scripts/smoke_test.py --skip-docker

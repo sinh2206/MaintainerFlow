@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from maintainerflow.core.schemas import RepositoryRef
 from maintainerflow.issue.classifier import classify_issue
@@ -15,7 +15,7 @@ REPOSITORY = RepositoryRef(github_id=1, owner="benchmark", name="fixture")
 
 
 def _load(path: Path) -> dict[str, Any]:
-    return json.loads(path.read_text(encoding="utf-8"))
+    return cast(dict[str, Any], json.loads(path.read_text(encoding="utf-8")))
 
 
 def _classification_metrics(cases: list[dict[str, Any]]) -> dict[str, float]:
@@ -69,10 +69,10 @@ def _duplicate_metrics(cases: list[dict[str, Any]]) -> dict[str, float]:
     }
 
 
-def main() -> int:
+def run_benchmark() -> dict[str, Any]:
     classification = _load(CLASSIFICATION)
     duplicates = _load(DUPLICATES)
-    metrics = {
+    return {
         "dataset_versions": {
             "classification": classification["dataset_version"],
             "duplicates": duplicates["dataset_version"],
@@ -80,6 +80,23 @@ def main() -> int:
         "classification": _classification_metrics(classification["cases"]),
         "duplicates": _duplicate_metrics(duplicates["cases"]),
     }
+
+
+def render_markdown(metrics: dict[str, Any]) -> str:
+    return "\n".join(
+        [
+            "# Issue Triage Benchmark",
+            "",
+            f"- Classification Macro-F1: `{metrics['classification']['macro_f1']:.4f}`",
+            f"- Duplicate Recall@3: `{metrics['duplicates']['recall_at_3']:.4f}`",
+            f"- Duplicate MRR: `{metrics['duplicates']['mrr']:.4f}`",
+            "",
+        ]
+    )
+
+
+def main() -> int:
+    metrics = run_benchmark()
     print(json.dumps(metrics, indent=2, sort_keys=True))
     return int(
         metrics["classification"]["macro_f1"] < 0.8 or metrics["duplicates"]["recall_at_3"] < 0.75

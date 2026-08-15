@@ -1,0 +1,31 @@
+name: Documentation correction
+description: Report an inaccurate, missing or hard-to-follow instruction.
+title: "docs: "
+labels: [documentation, triage]
+body:
+  - type: input
+    id: location
+    attributes:
+      label: Document and section
+      placeholder: docs/self-hosting.md — Upgrade
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What is inaccurate or unclear?
+      description: Include the exact command/outcome using only redacted data.
+    validations:
+      required: true
+  - type: textarea
+    id: correction
+    attributes:
+      label: Suggested correction or verification
+      description: Link authoritative sources where useful.
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety check
+      options:
+        - label: This report contains no credentials, private payloads/source, or personal data.
+          required: true

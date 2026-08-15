@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "maintainerflow"
-version = "0.4.0"
+version = "1.0.0"
 description = "Safe, evidence-backed maintainer intelligence for GitHub"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -39,6 +39,9 @@ maintainerflow = "maintainerflow.cli.app:app"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/maintainerflow"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"benchmarks" = "benchmarks"
 
 [tool.pytest.ini_options]
 addopts = "-ra --strict-markers"

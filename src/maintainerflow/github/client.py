@@ -21,6 +21,7 @@ from maintainerflow.core.schemas import (
     RepositoryRef,
 )
 from maintainerflow.issue.schemas import IssueSource
+from maintainerflow.release.schemas import MergedPullRequest
 
 STATUS_MAP: dict[str, ChangeType] = {
     "added": "added",
@@ -47,6 +48,14 @@ class FetchedPullRequest:
 @dataclass(frozen=True)
 class FetchedHistory:
     evidence: tuple[Evidence, ...]
+    rate_limit: RateLimitMetadata
+    truncated_by_budget: bool = False
+
+
+@dataclass(frozen=True)
+class FetchedReleaseRange:
+    pull_requests: tuple[MergedPullRequest, ...]
+    compare_url: str
     rate_limit: RateLimitMetadata
     truncated_by_budget: bool = False
 
@@ -208,6 +217,120 @@ class GitHubClient:
         try:
             rows, _, _ = await self._paginate(client, f"{self.base_url}/repos/{slug}/labels")
             return tuple(str(item["name"]) for item in rows)
+        finally:
+            if owned_client:
+                await client.aclose()
+
+    async def list_release_tags(self, owner: str, repo: str) -> tuple[str, ...]:
+        """List published GitHub Release tags; lightweight Git tags are intentionally excluded."""
+        slug = f"{quote(owner, safe='')}/{quote(repo, safe='')}"
+        owned_client = self.client is None
+        client = self.client or httpx.AsyncClient()
+        try:
+            rows, _, _ = await self._paginate(client, f"{self.base_url}/repos/{slug}/releases")
+            return tuple(
+                str(item["tag_name"])
+                for item in rows
+                if not item.get("draft") and item.get("tag_name")
+            )
+        finally:
+            if owned_client:
+                await client.aclose()
+
+    async def fetch_release_range(
+        self,
+        owner: str,
+        repo: str,
+        from_ref: str,
+        to_ref: str,
+        *,
+        rate_limit_floor: int = 100,
+        max_commits: int = 500,
+    ) -> FetchedReleaseRange:
+        """Resolve merged PRs through compare commits without trusting title-only history."""
+        slug = f"{quote(owner, safe='')}/{quote(repo, safe='')}"
+        encoded_range = f"{quote(from_ref, safe='')}...{quote(to_ref, safe='')}"
+        api_base = f"{self.base_url}/repos/{slug}"
+        compare_url = f"https://github.com/{owner}/{repo}/compare/{encoded_range}"
+        owned_client = self.client is None
+        client = self.client or httpx.AsyncClient()
+        rate = RateLimitMetadata(None, None)
+        truncated = False
+        commit_shas: list[str] = []
+        pulls: dict[int, dict[str, Any]] = {}
+        try:
+            for page in range(1, self.max_pages + 1):
+                response = await self._get(
+                    client,
+                    f"{api_base}/compare/{encoded_range}?per_page=100&page={page}",
+                    accept="application/vnd.github+json",
+                )
+                payload = response.json()
+                page_commits = payload.get("commits", [])
+                if not isinstance(page_commits, list):
+                    raise PermanentDependencyError("github_invalid_compare")
+                commit_shas.extend(str(item["sha"]) for item in page_commits)
+                rate = self._rate_limit(response)
+                if rate.remaining is not None and rate.remaining <= rate_limit_floor:
+                    truncated = True
+                    break
+                if len(commit_shas) >= max_commits:
+                    commit_shas = commit_shas[:max_commits]
+                    truncated = True
+                    break
+                if len(page_commits) < 100:
+                    break
+            for sha in commit_shas:
+                if rate.remaining is not None and rate.remaining <= rate_limit_floor:
+                    truncated = True
+                    break
+                rows, rate, stopped = await self._paginate(
+                    client,
+                    f"{api_base}/commits/{quote(sha, safe='')}/pulls",
+                    rate_limit_floor=rate_limit_floor,
+                )
+                truncated = truncated or stopped
+                for item in rows:
+                    if item.get("merged_at"):
+                        pulls[int(item["id"])] = item
+                if stopped:
+                    break
+            results: list[MergedPullRequest] = []
+            ordered_pulls = sorted(
+                pulls.values(), key=lambda row: (int(row["number"]), int(row["id"]))
+            )
+            for item in ordered_pulls:
+                if rate.remaining is not None and rate.remaining <= rate_limit_floor:
+                    truncated = True
+                    break
+                number = int(item["number"])
+                file_rows, rate, stopped = await self._paginate(
+                    client,
+                    f"{api_base}/pulls/{number}/files",
+                    rate_limit_floor=rate_limit_floor,
+                )
+                truncated = truncated or stopped
+                labels = tuple(
+                    str(label.get("name", "")) if isinstance(label, dict) else str(label)
+                    for label in item.get("labels", [])
+                )
+                results.append(
+                    MergedPullRequest(
+                        github_id=int(item["id"]),
+                        number=number,
+                        title=str(item["title"]),
+                        url=str(item["html_url"]),
+                        author=str(item.get("user", {}).get("login") or "ghost"),
+                        body=str(item.get("body") or ""),
+                        labels=tuple(label for label in labels if label),
+                        changed_files=tuple(str(file["filename"]) for file in file_rows),
+                        merged_at=item.get("merged_at"),
+                        merge_commit_sha=item.get("merge_commit_sha"),
+                    )
+                )
+                if stopped:
+                    break
+            return FetchedReleaseRange(tuple(results), compare_url, rate, truncated)
         finally:
             if owned_client:
                 await client.aclose()

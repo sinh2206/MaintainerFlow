@@ -1,23 +1,33 @@
 # MaintainerFlow
 
 MaintainerFlow turns GitHub pull-request webhooks into safe, evidence-backed, non-blocking Check
-Runs and shadow-mode Issue triage. The current `v0.4.0` workflow combines:
+Runs, shadow-mode Issue triage, deterministic release drafts, and reproducible offline evaluation.
+The current `v1.0.0` workflow combines:
 
 - **CP1 — ingestion:** signed, idempotent GitHub webhook delivery and recovery.
 - **CP2 — intelligence:** reproducible summary, risk, evidence, suggested tests, and review focus.
 - **CP3 — publishing:** policy-gated GitHub Checks through a leased transactional outbox.
 - **CP4 — repository intelligence:** Issue classification, priority/label suggestions, lexical
   duplicate ranking, Python AST/dependency context, and repository-history evidence.
+- **CP5 — release and evaluation:** merged-PR changelogs, evidence-backed breaking candidates,
+  contributor lists, 60-case PR-risk comparison, smoke/upgrade gates, and OSS documentation.
 
 ```text
 GitHub webhook → API → PostgreSQL delivery → Dramatiq worker → PR analysis
                → analysis + audit + outbox → GitHub Check queued/in_progress/completed
                ↘ Issue triage + repository cache → suggestion audit (no GitHub write)
+GitHub compare/tags → Release Assistant → persisted human-review draft (no GitHub write)
+Versioned datasets → Static/AI proxy/Hybrid/History runners → JSON/Markdown report
 ```
 
 The default `shadow` mode is neutral and cannot merge, close, label, release, edit branches, or
 change repository contents. Gemini is optional; static analysis remains available when Gemini is
 disabled or unavailable.
+
+This checkout is a `v1.0.0` release candidate: local unit/integration/E2E, fresh-wheel, Compose,
+PostgreSQL migration/race, lint, type, smoke, and benchmark gates pass. The semantic tag, a public
+demo installation, an independent human fresh-user run, and external beta repositories are
+external acceptance gates and are not claimed as completed here.
 
 ## Requirements
 
@@ -144,8 +154,8 @@ MAINTAINERFLOW_REPOSITORY_STORE_SOURCE_CODE=false
 ```
 
 GitHub may generate a `BEGIN PRIVATE KEY` header instead; preserve the downloaded header and
-footer exactly. At runtime, installation tokens are restricted again to the event repository and
-to the event repository. PR publishing requests `contents:read`, `pull_requests:read`, and
+footer exactly. At runtime, installation tokens are restricted again to the event repository. PR
+publishing requests `contents:read`, `pull_requests:read`, and
 `checks:write`; Issue triage requests `contents:read`, `pull_requests:read`, and `issues:read`
 without Checks write permission.
 
@@ -168,6 +178,44 @@ MAINTAINERFLOW_AI_TIMEOUT_SECONDS=30
 an outage produces a `PARTIAL` report while retaining static evidence; it does not fail the whole
 PR workflow.
 
+### Environment-variable reference
+
+`.env.example` is the copy-ready local template. The table below lists every behavior-affecting
+group; secret values are conditional and must never be committed.
+
+| Variable | Default/example | Purpose |
+| --- | --- | --- |
+| `MAINTAINERFLOW_ENVIRONMENT` | `development` locally | Environment label included in configuration checks/log context. |
+| `MAINTAINERFLOW_LOG_LEVEL` | `INFO` | Runtime log level. |
+| `MAINTAINERFLOW_GITHUB_APP_ID` | required positive integer | GitHub App identity; not the OAuth Client ID. |
+| `MAINTAINERFLOW_GITHUB_WEBHOOK_SECRET` | required, ≥16 characters | Verifies the raw webhook body with HMAC-SHA256. |
+| `MAINTAINERFLOW_GITHUB_PRIVATE_KEY` | empty by default | Full PEM; required only when workflow processing is enabled. |
+| `MAINTAINERFLOW_GITHUB_API_URL` | `https://api.github.com` | GitHub REST base URL. |
+| `MAINTAINERFLOW_GITHUB_API_VERSION` | `2026-03-10` | Version header sent to GitHub. |
+| `MAINTAINERFLOW_DATABASE_URL` | Compose PostgreSQL URL | Async SQLAlchemy URL using `postgresql+asyncpg` or test-only `sqlite+aiosqlite`. |
+| `MAINTAINERFLOW_REDIS_URL` | `redis://redis:6379/0` | Dramatiq queue connection; `rediss://` is also accepted. |
+| `MAINTAINERFLOW_WORKFLOW_ENABLED` | `false` | Enables worker fetch/analysis; requires the App private key. |
+| `MAINTAINERFLOW_CHECK_PUBLISH_ENABLED` | `false` | Enables policy-gated Check writes; requires workflow enabled. |
+| `MAINTAINERFLOW_CHECK_MODE` | `shadow` | `shadow` is always neutral; `suggestion` may publish non-blocking advice. |
+| `MAINTAINERFLOW_ISSUE_TRIAGE_ENABLED` | `false` | Enables read-only Issue classification/suggestions. |
+| `MAINTAINERFLOW_REPOSITORY_INTELLIGENCE_ENABLED` | `false` | Enables tree/AST/dependency/history context. |
+| `MAINTAINERFLOW_AI_ENABLED` | `false` | Enables optional Gemini semantic signals. |
+| `MAINTAINERFLOW_GEMINI_API_KEY` | empty | Required only when AI is enabled. |
+| `MAINTAINERFLOW_GEMINI_MODEL` | `gemini-3.5-flash-lite` | Gemini model ID. |
+| `MAINTAINERFLOW_AI_TIMEOUT_SECONDS` | `30` | Provider deadline; timeout falls back to a partial static report. |
+| `MAINTAINERFLOW_ANALYSIS_STORE_DIFF` | `false` | Raw-diff persistence policy; keep disabled unless explicitly reviewed. |
+| `MAINTAINERFLOW_ANALYSIS_MAX_DIFF_BYTES` | `1000000` | Maximum diff bytes accepted by analysis. |
+| `MAINTAINERFLOW_REPOSITORY_STORE_SOURCE_CODE` | `false` | Opt-in source archive storage; requires repository intelligence. |
+| `MAINTAINERFLOW_ISSUE_STORE_BODY` | `false` | Opt-in Issue-body storage; requires Issue triage. |
+| `MAINTAINERFLOW_INTELLIGENCE_RETENTION_DAYS` | `30` | Expiry for repository/history/Issue intelligence records. |
+| `MAINTAINERFLOW_GITHUB_HISTORY_RATE_LIMIT_FLOOR` | `100` | Stops history collection before exhausting GitHub quota. |
+| `MAINTAINERFLOW_DELIVERY_LEASE_SECONDS` | `60` | Delivery-worker lease duration. |
+| `MAINTAINERFLOW_RECOVERY_INTERVAL_SECONDS` | `30` | Recovery scan interval. |
+| `MAINTAINERFLOW_RECOVERY_BATCH_SIZE` | `100` | Maximum deliveries recovered per scan. |
+| `MAINTAINERFLOW_OUTBOX_LEASE_SECONDS` | `60` | GitHub publisher lease duration. |
+| `MAINTAINERFLOW_OUTBOX_BATCH_SIZE` | `20` | Maximum publish commands per dispatch batch. |
+| `MAINTAINERFLOW_OUTBOX_MAX_ATTEMPTS` | `5` | Retry ceiling before dead letter. |
+
 ### 5. Validate configuration and restart
 
 Build the final image, validate the environment without printing secrets, and recreate services so
@@ -181,7 +229,7 @@ docker compose ps
 docker compose logs migrate worker --tail 100
 ```
 
-Expected migration head: `0004_issue_repository_context`. Check it directly with:
+Expected migration head: `0005_release_assistant`. Check it directly with:
 
 ```powershell
 docker compose exec -T db psql -U maintainerflow -d maintainerflow -Atc `
@@ -216,6 +264,9 @@ docker compose exec -T db psql -U maintainerflow -d maintainerflow -c `
 
 docker compose exec -T db psql -U maintainerflow -d maintainerflow -c `
   "SELECT issue_number,classification,confidence,priority FROM issue_analyses ORDER BY id DESC LIMIT 10;"
+
+docker compose exec -T db psql -U maintainerflow -d maintainerflow -c `
+  "SELECT from_ref,to_ref,review_status,created_at FROM release_drafts ORDER BY id DESC LIMIT 10;"
 ```
 
 Expected final states are `deliveries.status=completed`, `analyses.publish_status=completed`, and
@@ -232,6 +283,8 @@ creating unbounded duplicates.
 | Full Gemini workflow | Above plus `MAINTAINERFLOW_AI_ENABLED=true` and key | Static report plus validated Gemini signals |
 | Issue triage | `WORKFLOW_ENABLED=true`, `ISSUE_TRIAGE_ENABLED=true` | Store shadow suggestions/audit; no GitHub write |
 | Repository context | Above plus `REPOSITORY_INTELLIGENCE_ENABLED=true` | Cache tree/AST/graph/history by commit SHA and enrich PR risk |
+| Release preview | Local `release --input` command | Render/export a deterministic draft; publishing is unavailable in v1.0 |
+| Offline evaluation | Local `benchmark --suite all` command | Run locked datasets; no provider request or billable API call |
 
 `MAINTAINERFLOW_CHECK_PUBLISH_ENABLED=true` is rejected unless
 `MAINTAINERFLOW_WORKFLOW_ENABLED=true`; Issue triage and repository intelligence have the same
@@ -257,6 +310,49 @@ uv run maintainerflow analyze `
 
 The command prints a versioned `AnalysisResult` JSON document.
 
+## Release Assistant
+
+Preview the included three-PR demo fixture, then export the exact same Markdown bytes:
+
+```powershell
+uv run maintainerflow release --input examples/demo/release-input.json
+uv run maintainerflow release `
+  --input examples/demo/release-input.json `
+  --output release-notes.md
+```
+
+The input is provider-neutral merged-PR JSON with repository, `from_ref`, `to_ref`, compare URL,
+labels, authors, changed files, and optional category rules. The GitHub service can collect
+published release tags and merged PRs across a compare range with pagination/rate-budget limits;
+the CLI fixture path makes preview and review reproducible without credentials.
+
+Categories use explicit first-match precedence: `feature`, `fix`, `performance`, `docs`, then
+`chore`. Breaking signals are candidates with provenance, never an automatic semantic-version
+decision. Every candidate requires maintainer confirmation. `--publish` is deliberately rejected
+in v1.0, so this command cannot create a GitHub Release or mutate a repository.
+
+## Reproducible benchmarks
+
+Run both CP2 PR-risk and CP4 Issue-triage suites and export reports:
+
+```powershell
+uv run maintainerflow benchmark --suite all --format json --output benchmark-report.json
+uv run maintainerflow benchmark --suite all --format markdown --output benchmark-report.md
+```
+
+The PR-risk manifest contains 60 manually reviewed synthetic scenarios with fixed
+train/validation/test splits. On the locked 30-case test split, the committed v2 report records
+Macro-F1 `0.6678` for Static-only, `0.5693` for the offline AI proxy, `0.8380` for Hybrid, and
+`0.9129` for Hybrid+History. These are reproducible project benchmarks—not claims about a hosted
+Gemini model or real-world maintainer productivity. Latency is machine-dependent and cost is a
+declared estimate; no API call or charge occurs.
+
+Run the complete local smoke check after the stack is already running, or start it automatically:
+
+```powershell
+uv run python scripts/smoke_test.py --start
+```
+
 ## Tests
 
 Run the full credential-free quality gate:
@@ -267,28 +363,30 @@ uv run ruff format --check .
 uv run ruff check .
 uv run mypy src/maintainerflow
 uv run pytest -m "not e2e"
-uv run python benchmarks/runners/issue_triage.py
-uv run pytest tests/e2e/test_cli_analyze.py `
-  tests/e2e/test_pull_request_check.py `
-  tests/e2e/test_ai_outage.py `
-  tests/e2e/test_prompt_injection.py -m e2e
+uv run pytest -m e2e
+uv run maintainerflow benchmark --suite all --format json
+uv run python scripts/smoke_test.py --skip-docker
 ```
 
-The integration tests cover CP1 → CP2 → CP3 and the CP1 → CP4 Issue boundary. CP4 confirms
-repository-scoped read permissions, suggestions/audit persistence, cache versioning, retention, and
-the absence of Issue write/outbox side effects.
+The contract suite traverses CP1 ingestion → CP2 analysis → CP3 Check outbox → CP4 Issue triage →
+CP5 release persistence in one repository. Hard cases cover replay/idempotency, two concurrent
+PostgreSQL transactions, pagination, rate-budget truncation, every input permutation, hostile
+Markdown/URL/control characters, provider retry duplicates, AI outage, prompt injection, wheel
+installation in a clean virtualenv, report drift, and CP4→CP5 upgrade/downgrade data preservation.
 
 With Docker running, test health and real PostgreSQL delivery handling:
 
 ```powershell
 $env:RUN_E2E = "1"
 $env:MAINTAINERFLOW_GITHUB_WEBHOOK_SECRET = $webhookSecret
-uv run pytest tests/e2e/test_compose_startup.py tests/e2e/test_webhook_flow.py -m e2e
+uv run pytest -m e2e
 ```
 
-These two synthetic webhook tests should be run with `MAINTAINERFLOW_WORKFLOW_ENABLED=false`;
-installation ID `77` is intentionally fake. The credentialed five-PR GitHub gate remains a manual
-test described in [`docs/testing-checkpoint-3.md`](docs/testing-checkpoint-3.md).
+The synthetic webhook tests should be run with `MAINTAINERFLOW_WORKFLOW_ENABLED=false`;
+installation ID `77` is intentionally fake. The suite additionally performs a real PostgreSQL
+schema round-trip and release-write race in isolated temporary databases. The credentialed
+five-PR GitHub gate remains a manual test described in
+[`docs/testing-checkpoint-3.md`](docs/testing-checkpoint-3.md).
 
 ## Troubleshooting
 
@@ -355,6 +453,8 @@ those local volumes; use it only when you intentionally want a clean database.
 - Outbox leases, unique idempotency keys, bounded retries, and dead letters prevent retry storms.
 - Check actions are feedback only: `useful/not_useful` in shadow mode and
   `accept/reject/useful` in suggestion mode.
+- Release generation persists a review-pending draft and audit event but creates no outbox event;
+  GitHub Release publishing is not implemented in v1.0.
 
 The included Compose configuration is intended for local development and evaluation. Before a
 public production deployment, use managed secrets, replace development database credentials,
@@ -364,10 +464,23 @@ terminate HTTPS at a trusted proxy, back up PostgreSQL, monitor dead letters, an
 
 - [Checkpoint acceptance criteria](checkpoint.md)
 - [Contributing guide](CONTRIBUTING.md)
+- [Architecture](docs/architecture.md)
+- [OSS evidence status](docs/oss-evidence-status.md)
+- [Three-minute demo runbook](docs/demo-video.md)
+- [Five-case manual evaluation evidence](docs/evaluation-evidence.md)
+- [GitHub App setup](docs/github-app-setup.md)
+- [Self-hosting and upgrades](docs/self-hosting.md)
+- [Security model](docs/security.md)
+- [Privacy and retention](docs/privacy.md)
+- [Roadmap](docs/roadmap.md)
+- [Changelog](CHANGELOG.md)
+- [Local demo](examples/demo/README.md)
+- [Good first contribution tasks](.github/GOOD_FIRST_ISSUES.md)
 - [Testing CP1](docs/testing-checkpoint-1.md)
 - [Testing CP2](docs/testing-checkpoint-2.md)
 - [Testing CP3](docs/testing-checkpoint-3.md)
 - [Testing CP4](docs/testing-checkpoint-4.md)
+- [Testing CP5](docs/testing-checkpoint-5.md)
 - [GitHub App permissions](https://docs.github.com/en/apps/creating-github-apps/registering-a-github-app/choosing-permissions-for-a-github-app)
 - [GitHub App webhooks](https://docs.github.com/en/apps/creating-github-apps/registering-a-github-app/using-webhooks-with-github-apps)
 - [Gemini latest models](https://ai.google.dev/gemini-api/docs/latest-model)

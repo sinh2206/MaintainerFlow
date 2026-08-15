@@ -174,6 +174,7 @@ class AuditEvent(Base):
     __table_args__ = (
         Index("ix_audit_analysis_type", "analysis_id", "event_type"),
         Index("ix_audit_issue_analysis_type", "issue_analysis_id", "event_type"),
+        Index("ix_audit_release_draft_type", "release_draft_id", "event_type"),
     )
 
     id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True, autoincrement=True)
@@ -182,6 +183,9 @@ class AuditEvent(Base):
     analysis_id: Mapped[int | None] = mapped_column(ForeignKey("analyses.id"))
     issue_analysis_id: Mapped[int | None] = mapped_column(
         ForeignKey("issue_analyses.id", ondelete="SET NULL")
+    )
+    release_draft_id: Mapped[int | None] = mapped_column(
+        ForeignKey("release_drafts.id", ondelete="SET NULL")
     )
     actor_id: Mapped[int | None] = mapped_column(BigInteger)
     actor_login: Mapped[str | None] = mapped_column(String(255))
@@ -269,6 +273,33 @@ class HistoricalEvidenceRecord(Base):
     path: Mapped[str | None] = mapped_column(String(4_096))
     payload: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class ReleaseDraftRecord(Base):
+    __tablename__ = "release_drafts"
+    __table_args__ = (
+        UniqueConstraint(
+            "repository_id", "from_ref", "to_ref", "input_hash", name="uq_release_draft_input"
+        ),
+        Index("ix_release_drafts_range", "repository_id", "from_ref", "to_ref"),
+    )
+
+    id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True, autoincrement=True)
+    repository_id: Mapped[int] = mapped_column(
+        ForeignKey("repositories.id", ondelete="CASCADE"), nullable=False
+    )
+    from_ref: Mapped[str] = mapped_column(String(255), nullable=False)
+    to_ref: Mapped[str] = mapped_column(String(255), nullable=False)
+    input_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    schema_version: Mapped[str] = mapped_column(String(16), nullable=False)
+    compare_url: Mapped[str] = mapped_column(String(2_048), nullable=False)
+    markdown: Mapped[str] = mapped_column(Text, nullable=False)
+    draft_payload: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    limitations: Mapped[list[str]] = mapped_column(JSON, nullable=False)
+    review_status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

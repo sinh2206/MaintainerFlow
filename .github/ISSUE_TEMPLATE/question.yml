@@ -1,0 +1,35 @@
+name: Usage question
+description: Ask a focused question after checking README and self-hosting docs.
+title: "question: "
+labels: [question, triage]
+body:
+  - type: input
+    id: goal
+    attributes:
+      label: Goal
+      description: What are you trying to accomplish?
+    validations:
+      required: true
+  - type: textarea
+    id: attempted
+    attributes:
+      label: What you tried
+      description: Include exact redacted commands and the relevant documentation section.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Version/commit, OS, Python/Docker versions and enabled feature flags; never paste values of secrets.
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety check
+      options:
+        - label: I checked README, docs/self-hosting.md and existing issues.
+          required: true
+        - label: This question contains no credentials, private payloads/source, or personal data.
+          required: true

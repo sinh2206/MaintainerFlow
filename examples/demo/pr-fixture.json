@@ -1,0 +1,22 @@
+{
+  "repository": {
+    "github_id": 424242,
+    "owner": "demo-owner",
+    "name": "maintainerflow-demo"
+  },
+  "number": 7,
+  "base_sha": "1111111111111111111111111111111111111111",
+  "head_sha": "2222222222222222222222222222222222222222",
+  "title": "Validate negative quantities",
+  "body": "Reject invalid input before calculating a total.",
+  "diff": "diff --git a/src/demo_calculator.py b/src/demo_calculator.py\nindex 1111111..2222222 100644\n--- a/src/demo_calculator.py\n+++ b/src/demo_calculator.py\n@@ -1,2 +1,4 @@\n def calculate_total(quantity: int, unit_price: int) -> int:\n+    if quantity < 0:\n+        raise ValueError(\"quantity must be non-negative\")\n     return quantity * unit_price\n",
+  "changed_files": [
+    {
+      "path": "src/demo_calculator.py",
+      "change_type": "modified",
+      "additions": 2,
+      "deletions": 0,
+      "patch": "@@ -1,2 +1,4 @@\n def calculate_total(quantity: int, unit_price: int) -> int:\n+    if quantity < 0:\n+        raise ValueError(\"quantity must be non-negative\")\n     return quantity * unit_price\n"
+    }
+  ]
+}

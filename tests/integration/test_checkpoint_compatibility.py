@@ -1,5 +1,6 @@
 import asyncio
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -17,6 +18,8 @@ from maintainerflow.core.schemas import (
     RepositoryRef,
 )
 from maintainerflow.github.checks import safe_text
+from maintainerflow.github.client import FetchedReleaseRange, RateLimitMetadata
+from maintainerflow.issue.schemas import IssueSource
 from maintainerflow.persistence.database import Database
 from maintainerflow.persistence.models import (
     AnalysisRecord,
@@ -24,15 +27,20 @@ from maintainerflow.persistence.models import (
     AuditEvent,
     Delivery,
     EvidenceRecord,
+    IssueAnalysisRecord,
     OutboxEvent,
+    ReleaseDraftRecord,
 )
+from maintainerflow.release.schemas import MergedPullRequest
+from maintainerflow.services.analyze_issue import analyze_issue
+from maintainerflow.services.generate_release_notes import generate_release_notes
 from maintainerflow.worker import tasks
 from tests.helpers import signature
 
 FIXTURE = Path(__file__).parents[2] / "benchmarks/datasets/pr-risk/fixtures/04-core-no-tests.json"
 
 
-def test_cp1_webhook_runs_cp2_report_into_one_cp3_check(
+def test_cp1_webhook_runs_cp2_report_cp3_check_cp4_triage_and_cp5_release(
     app_client: tuple[TestClient, list[int], str],
     github_payload: dict[str, object],
     webhook_secret: str,
@@ -113,7 +121,67 @@ def test_cp1_webhook_runs_cp2_report_into_one_cp3_check(
         database = Database(database_url)
         try:
             async with database.session() as session:
-                delivery = await session.get(Delivery, queued[0])
+                async with session.begin():
+                    delivery = await session.get(Delivery, queued[0])
+                    assert delivery is not None
+                    issue_run = await analyze_issue(
+                        IssueSource(
+                            repository=source.repository,
+                            github_id=7001,
+                            number=71,
+                            title="Worker fails after webhook retry",
+                            body="Reproducible crash while processing an idempotent retry.",
+                            url="https://github.test/sinh2206/MaintainerFlow/issues/71",
+                        ),
+                        repository_id=delivery.repository_id,
+                        session=session,
+                        available_labels=("bug", "priority:high"),
+                    )
+
+                    class FakeReleaseSource:
+                        async def list_release_tags(self, owner: str, repo: str) -> tuple[str, ...]:
+                            assert (owner, repo) == ("sinh2206", "MaintainerFlow")
+                            return ("v0.4.0",)
+
+                        async def fetch_release_range(
+                            self, owner: str, repo: str, from_ref: str, to_ref: str
+                        ) -> FetchedReleaseRange:
+                            assert (owner, repo, from_ref, to_ref) == (
+                                "sinh2206",
+                                "MaintainerFlow",
+                                "v0.4.0",
+                                "v1.0.0",
+                            )
+                            return FetchedReleaseRange(
+                                (
+                                    MergedPullRequest(
+                                        github_id=8001,
+                                        number=80,
+                                        title="feat!: add release assistant",
+                                        url=("https://github.test/sinh2206/MaintainerFlow/pull/80"),
+                                        author="contributor",
+                                        body="BREAKING CHANGE: review the migration",
+                                        labels=("feature",),
+                                        changed_files=("migrations/versions/0005.py",),
+                                        merged_at=datetime(2026, 8, 13, tzinfo=UTC),
+                                    ),
+                                ),
+                                (
+                                    "https://github.test/sinh2206/MaintainerFlow/compare/"
+                                    "v0.4.0...v1.0.0"
+                                ),
+                                RateLimitMetadata(4000, None),
+                            )
+
+                    release_run = await generate_release_notes(
+                        session,
+                        repository_id=delivery.repository_id,
+                        repository=source.repository,
+                        from_ref="v0.4.0",
+                        to_ref="v1.0.0",
+                        github=FakeReleaseSource(),
+                    )
+
                 analysis = await session.scalar(select(AnalysisRecord))
                 events = list(await session.scalars(select(OutboxEvent).order_by(OutboxEvent.id)))
                 assert delivery is not None and delivery.status == DeliveryStatus.COMPLETED.value
@@ -124,7 +192,15 @@ def test_cp1_webhook_runs_cp2_report_into_one_cp3_check(
                     == 1
                 )
                 assert await session.scalar(select(func.count()).select_from(EvidenceRecord))
-                assert await session.scalar(select(func.count()).select_from(AuditEvent)) == 2
+                assert issue_run.persisted and release_run.persisted
+                assert release_run.draft.breaking_candidates
+                assert (
+                    await session.scalar(select(func.count()).select_from(IssueAnalysisRecord)) == 1
+                )
+                assert (
+                    await session.scalar(select(func.count()).select_from(ReleaseDraftRecord)) == 1
+                )
+                assert await session.scalar(select(func.count()).select_from(AuditEvent)) == 4
                 assert len(events) == 2
                 assert {event.status for event in events} == {OutboxStatus.SENT.value}
                 final = GitHubCheckCommand.model_validate(events[1].payload)

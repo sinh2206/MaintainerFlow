@@ -1,0 +1,147 @@
+{
+  "schema_version": "pr-risk-comparison-v1",
+  "dataset": {
+    "name": "pr-risk",
+    "version": "2.0.0",
+    "license": "CC0-1.0",
+    "source": "Synthetic, manually reviewed MaintainerFlow PR scenarios; no private repository content.",
+    "split_policy": "Fixed before evaluation: pr-001..015 train, pr-016..030 validation, pr-031..060 test."
+  },
+  "evaluation": {"split": "test", "sample_count": 30},
+  "environment": {"python": "3.12.10", "implementation": "CPython", "platform": "Windows"},
+  "strategies": {
+    "Static-only": {
+      "strategy_version": "static-proxy-v1",
+      "model": "none",
+      "sample_count": 30,
+      "sample_fingerprint": "f31ee951d9d831ee88640440d3b5b10f5dec718d457130b8c6fe1da57333f082",
+      "metrics": {
+        "risk_accuracy": 0.6667,
+        "risk_macro_f1": 0.6678,
+        "review_priority_accuracy": 0.6667,
+        "high_risk_false_positives": 0,
+        "high_risk_false_negatives": 7,
+        "brier_score": 0.2083,
+        "expected_calibration_error": 0.2213,
+        "evidence_recall": 0.6056,
+        "evidence_precision": 0.7333,
+        "test_suggestion_recall": 0.7722,
+        "accepted_evidence_suggestions": 21,
+        "rejected_evidence_suggestions": 0
+      },
+      "latency": {
+        "basis": "local measured wall time; excluded from deterministic comparison",
+        "p50_ms": 0.0036,
+        "p95_ms": 0.0364
+      },
+      "cost": {
+        "basis": "modeled estimate; no billable API request was made",
+        "estimated_total_usd": 0.0,
+        "estimated_per_case_usd": 0.0
+      }
+    },
+    "AI-only": {
+      "strategy_version": "offline-language-proxy-v1",
+      "model": "offline-deterministic-proxy",
+      "sample_count": 30,
+      "sample_fingerprint": "f31ee951d9d831ee88640440d3b5b10f5dec718d457130b8c6fe1da57333f082",
+      "metrics": {
+        "risk_accuracy": 0.5667,
+        "risk_macro_f1": 0.5693,
+        "review_priority_accuracy": 0.5667,
+        "high_risk_false_positives": 2,
+        "high_risk_false_negatives": 9,
+        "brier_score": 0.2763,
+        "expected_calibration_error": 0.1853,
+        "evidence_recall": 0.3667,
+        "evidence_precision": 0.4667,
+        "test_suggestion_recall": 0.4278,
+        "accepted_evidence_suggestions": 11,
+        "rejected_evidence_suggestions": 5
+      },
+      "latency": {
+        "basis": "local measured wall time; excluded from deterministic comparison",
+        "p50_ms": 0.0037,
+        "p95_ms": 0.0141
+      },
+      "cost": {
+        "basis": "modeled estimate; no billable API request was made",
+        "estimated_total_usd": 0.0054,
+        "estimated_per_case_usd": 0.00018
+      }
+    },
+    "Hybrid": {
+      "strategy_version": "hybrid-proxy-v1",
+      "model": "offline-deterministic-proxy",
+      "sample_count": 30,
+      "sample_fingerprint": "f31ee951d9d831ee88640440d3b5b10f5dec718d457130b8c6fe1da57333f082",
+      "metrics": {
+        "risk_accuracy": 0.8333,
+        "risk_macro_f1": 0.838,
+        "review_priority_accuracy": 0.8333,
+        "high_risk_false_positives": 2,
+        "high_risk_false_negatives": 3,
+        "brier_score": 0.1537,
+        "expected_calibration_error": 0.1183,
+        "evidence_recall": 0.8722,
+        "evidence_precision": 0.8556,
+        "test_suggestion_recall": 0.9,
+        "accepted_evidence_suggestions": 32,
+        "rejected_evidence_suggestions": 5
+      },
+      "latency": {
+        "basis": "local measured wall time; excluded from deterministic comparison",
+        "p50_ms": 0.00895,
+        "p95_ms": 0.0103
+      },
+      "cost": {
+        "basis": "modeled estimate; no billable API request was made",
+        "estimated_total_usd": 0.0054,
+        "estimated_per_case_usd": 0.00018
+      }
+    },
+    "Hybrid+History": {
+      "strategy_version": "hybrid-history-proxy-v1",
+      "model": "offline-deterministic-proxy",
+      "sample_count": 30,
+      "sample_fingerprint": "f31ee951d9d831ee88640440d3b5b10f5dec718d457130b8c6fe1da57333f082",
+      "metrics": {
+        "risk_accuracy": 0.9,
+        "risk_macro_f1": 0.9129,
+        "review_priority_accuracy": 0.9,
+        "high_risk_false_positives": 2,
+        "high_risk_false_negatives": 1,
+        "brier_score": 0.0943,
+        "expected_calibration_error": 0.0683,
+        "evidence_recall": 0.9611,
+        "evidence_precision": 0.9278,
+        "test_suggestion_recall": 1.0,
+        "accepted_evidence_suggestions": 36,
+        "rejected_evidence_suggestions": 5
+      },
+      "latency": {
+        "basis": "local measured wall time; excluded from deterministic comparison",
+        "p50_ms": 0.01015,
+        "p95_ms": 0.0111
+      },
+      "cost": {
+        "basis": "modeled estimate; no billable API request was made",
+        "estimated_total_usd": 0.006,
+        "estimated_per_case_usd": 0.0002
+      }
+    }
+  },
+  "comparison": {
+    "hybrid_macro_f1_gain_over_best_single_strategy": 0.1702,
+    "hybrid_false_negative_reduction_vs_static": 4,
+    "history_false_negative_reduction_vs_hybrid": 2,
+    "requirement_met": true
+  },
+  "reproducibility": {
+    "deterministic_fields": "dataset, evaluation, strategy versions, sample fingerprints, prediction metrics, modeled cost",
+    "variable_fields": "environment and locally measured latency",
+    "model_variance": "None in this report: AI-only is a named offline deterministic proxy with no sampling or provider request. Production model/version changes require a new report.",
+    "cost_variance": "No charge occurred. Cost is a declared estimate and may differ by provider, model, tokenization, region, cache behavior and pricing date."
+  },
+  "privacy": "Aggregate metrics and synthetic sample fingerprints only; no secrets, prompts, raw private source, issue bodies or PR diffs are included."
+}

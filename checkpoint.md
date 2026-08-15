@@ -639,34 +639,36 @@ Release automation chỉ đáng tin khi event processing, analysis, policy và a
 
 #### Release Assistant
 
-- [ ]  Đọc merged PRs giữa hai tags/releases.
-- [ ]  Phân loại feature/fix/performance/docs/chore.
-- [ ]  Detect breaking-change candidate.
-- [ ]  Generate changelog.
-- [ ]  Generate release notes.
-- [ ]  Contributor list.
+- [x]  Đọc merged PRs giữa hai tags/releases.
+- [x]  Phân loại feature/fix/performance/docs/chore.
+- [x]  Detect breaking-change candidate.
+- [x]  Generate changelog.
+- [x]  Generate release notes.
+- [x]  Contributor list.
 
 #### OSS Readiness
 
-- [ ]  Installation guide hoàn chỉnh.
-- [ ]  GitHub App setup guide.
-- [ ]  Docker self-host guide.
-- [ ]  Architecture docs.
-- [ ]  Contribution guide.
-- [ ]  Issue templates.
-- [ ]  PR template.
-- [ ]  Good First Issues.
-- [ ]  Semantic/versioned releases.
-- [ ]  Changelog.
-- [ ]  Example repository/demo.
+- [x]  Installation guide hoàn chỉnh.
+- [x]  GitHub App setup guide.
+- [x]  Docker self-host guide.
+- [x]  Architecture docs.
+- [x]  Contribution guide.
+- [x]  Issue templates.
+- [x]  PR template.
+- [x]  Good First Issues.
+- [x]  Semantic/versioned release workflow.
+- [x]  Changelog.
+- [x]  Example repository/demo local có thể chạy lại.
 
 #### Evaluation
 
-- [ ]  Benchmark ít nhất 50–100 historical PRs.
-- [ ]  Gán ground truth risk/review priority.
-- [ ]  So sánh Static-only vs AI-only vs Hybrid.
+- [ ]  Benchmark ít nhất 50–100 historical PRs (hiện có 60 scenario tổng hợp được review; chưa
+  được phép gọi là dữ liệu historical thật).
+- [x]  Gán ground truth risk/review priority cho manifest v2 đã khóa split.
+- [x]  So sánh Static-only vs AI-only vs Hybrid và Hybrid+History.
 - [ ]  Đo thời gian maintainer đọc PR có/không có MaintainerFlow nếu có thể.
-- [ ]  Ghi nhận accepted/rejected AI suggestions.
+- [x]  Ghi nhận accepted/rejected evidence suggestions trong report; đây là offline proxy, không
+  phải feedback người dùng production.
 
 ### Khả năng mở rộng
 
@@ -688,6 +690,9 @@ Release automation chỉ đáng tin khi event processing, analysis, policy và a
 | `tests/e2e/test_fresh_user.py` | Môi trường sạch chạy quickstart/smoke test | Hoàn tất mà không sửa source hoặc hỏi tác giả. |
 | `tests/e2e/test_upgrade.py` | Database/config từ release trước | Migration forward thành công, dữ liệu/audit không mất. |
 | `tests/e2e/test_benchmark_reproducibility.py` | Chạy cùng manifest hai lần | Cùng sample count/split/static metrics; report ghi model/cost variance. |
+| `tests/e2e/test_release_concurrency.py` | Hai transaction PostgreSQL cùng tạo một draft | Chỉ một row/audit identity; transaction thua race đọc lại row đã commit. |
+| `tests/integration/test_checkpoint_compatibility.py` | Một repository đi qua CP1→CP2→CP3→CP4→CP5 | Delivery/analysis/outbox/issue/release cùng tồn tại, đúng audit và không có write ngoài policy. |
+| `tests/unit/github/test_client.py` | PR lặp qua commit, >100 file, rate budget | Pagination không bỏ/trùng; dừng an toàn và ghi limitation. |
 | Release workflow | Tag không đúng, test fail, artifact success | Không publish khi fail; artifact có checksum/version metadata khi pass. |
 
 ### Bài test
@@ -735,17 +740,34 @@ Expected: tất cả pass.
 
 ### Điều kiện PASS
 
-- Fresh-user test thành công.
-- Test suite/lint/type-check pass trong CI.
-- Có ít nhất 1 public demo repository.
-- Có release notes được tạo bởi chính MaintainerFlow và maintainer review lại.
-- Có benchmark report reproducible.
-- Có tối thiểu **3 người dùng/repository ngoài repository phát triển chính** để kiểm thử beta nếu có thể.
-- Có ít nhất 5 `good first issue` hoặc contribution task rõ ràng.
-- Có roadmap sau v1.0.
+- [ ] Fresh-user test do một người độc lập thực hiện; automated fresh-wheel/CLI test đã pass nhưng
+  không thay thế bước GitHub App live của con người.
+- [ ] Test suite/lint/type-check pass trên CI remote; workflow đã cấu hình và local gate pass, nhưng
+  chưa có run từ tag trong repository public.
+- [ ] Có ít nhất 1 public demo repository; hiện mới có scaffold `examples/demo` local.
+- [ ] Có release notes được tạo bởi MaintainerFlow và maintainer review lại trên release thật.
+- [x] Có benchmark report reproducible và committed report-drift test.
+- [ ] Có tối thiểu **3 người dùng/repository ngoài repository phát triển chính** để kiểm thử beta.
+- [x] Có 7 `good first issue`/contribution task rõ ràng.
+- [x] Có roadmap sau v1.0.
+
+### Bằng chứng triển khai local (2026-08-13)
+
+- `149` unit/integration test không-E2E pass; `15` E2E pass khi Docker bật.
+- Ruff format/check toàn repo và mypy strict trên `src/maintainerflow` pass.
+- Fresh wheel cài trong virtualenv trống rồi chạy `analyze` và cả hai benchmark suite thành công.
+- Compose build image `maintainerflow==1.0.0`; API, database, Redis, worker và recovery healthy;
+  smoke xác nhận Alembic head `0005_release_assistant` và không có schema drift.
+- PostgreSQL test nâng `0004 → 0005 → 0004` giữ nguyên delivery/issue/audit; race test với hai
+  transaction đồng thời chỉ tạo đúng một release draft.
+- PR-risk v2 có 60 scenario tổng hợp, split cố định `15/15/30`; test split Macro-F1:
+  Static-only `0.6678`, offline AI proxy `0.5693`, Hybrid `0.8380`, Hybrid+History `0.9129`.
+  Hybrid giảm high-risk false negative từ `7` xuống `3` so với Static-only.
+- Đây là bằng chứng kỹ thuật local. Các ô external/live ở trên vẫn để trống và không được suy diễn
+  là đã hoàn thành chỉ vì automated test pass.
 
 ### Deliverable
 
-**Release:** `v1.0.0`
+**Release candidate:** `v1.0.0` (chưa tạo tag/release cho đến khi external/live gates được review).
 
 ---

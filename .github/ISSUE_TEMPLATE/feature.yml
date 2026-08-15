@@ -1,0 +1,42 @@
+name: Feature request
+description: Propose a scoped capability with evidence and safe defaults.
+title: "feat: "
+labels: [enhancement, triage]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Maintainer problem
+      description: Who has the problem and what measurable outcome is blocked?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Smallest useful behavior
+      description: Include inputs, output, failure behavior and what remains out of scope.
+    validations:
+      required: true
+  - type: textarea
+    id: safety
+    attributes:
+      label: Permissions, writes, privacy and abuse cases
+      description: List new data sent/stored, retention/deletion, external effects and safe default.
+    validations:
+      required: true
+  - type: textarea
+    id: validation
+    attributes:
+      label: Test and evaluation plan
+      description: State adversarial/compatibility cases and a metric or acceptance criterion.
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Scope check
+      options:
+        - label: I searched the roadmap and existing issues.
+          required: true
+        - label: I have not assumed a hosted service or automatic GitHub write that does not exist.
+          required: true

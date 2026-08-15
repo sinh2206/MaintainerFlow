@@ -1,0 +1,189 @@
+{
+  "schema_version": "maintainerflow-manual-eval-v1",
+  "captured_at": "2026-08-13",
+  "project_version": "1.0.0",
+  "python": "3.12.10",
+  "mode": "static-only",
+  "command": "uv run maintainerflow analyze --input <fixture>",
+  "cases": [
+    {
+      "id": "manual-01-docs-only",
+      "fixture": "benchmarks/datasets/pr-risk/fixtures/01-readme-only.json",
+      "input_sha256": "ea3528a2e40a513eaf925c6e2c11352d8d4737a60d22a263f7dacecab1185d2d",
+      "manual_expectation": {
+        "status": "complete",
+        "risk_level": "low",
+        "required_evidence": [],
+        "forbidden_evidence": ["missing_tests"],
+        "limitation_contains": null
+      },
+      "recorded_output": {
+        "schema_version": "1",
+        "snapshot_id": "f9b3c407a3ad248790d779cd76d4e535bcbc774b4b3eca531bf21b1206674bc3",
+        "status": "complete",
+        "summary": "PR changes 1 file(s), with 1 addition(s) and 1 deletion(s).",
+        "risk": {"score": 1.0, "level": "low", "confidence": 0.95},
+        "evidence_coverage": 1.0,
+        "evidence": [],
+        "suggested_tests": [],
+        "review_focus": [],
+        "limitations": [],
+        "provider_metadata": null
+      }
+    },
+    {
+      "id": "manual-02-source-with-tests",
+      "fixture": "benchmarks/datasets/pr-risk/fixtures/03-core-with-tests.json",
+      "input_sha256": "4c5b2c30395275125262f74368ed3f951b5c234f07f313875671f9381024c902",
+      "manual_expectation": {
+        "status": "complete",
+        "risk_level": "low",
+        "required_evidence": ["core_change"],
+        "forbidden_evidence": ["missing_tests"],
+        "limitation_contains": null
+      },
+      "recorded_output": {
+        "schema_version": "1",
+        "snapshot_id": "062b08feafc38374a8c26d1705ce68395f550390902c702501a69e07a0008c74",
+        "status": "complete",
+        "summary": "PR changes 2 file(s), with 2 addition(s) and 0 deletion(s).",
+        "risk": {"score": 2.2, "level": "low", "confidence": 0.95},
+        "evidence_coverage": 1.0,
+        "evidence": [
+          {
+            "kind": "core_change",
+            "path": "src/parser.py",
+            "line": null,
+            "message": "Executable source changed.",
+            "source": "static-rules",
+            "confidence": 0.95,
+            "metadata": {"weight": 2}
+          }
+        ],
+        "suggested_tests": [],
+        "review_focus": [],
+        "limitations": [],
+        "provider_metadata": null
+      }
+    },
+    {
+      "id": "manual-03-source-without-tests",
+      "fixture": "benchmarks/datasets/pr-risk/fixtures/04-core-no-tests.json",
+      "input_sha256": "8a9260f59aeefe3975174a805c5b81b44b1cf6de355654224a93f62923c0fd0e",
+      "manual_expectation": {
+        "status": "complete",
+        "risk_level": "medium",
+        "required_evidence": ["core_change", "missing_tests"],
+        "forbidden_evidence": [],
+        "limitation_contains": null
+      },
+      "recorded_output": {
+        "schema_version": "1",
+        "snapshot_id": "5f226223a08de0b36052ec95fc07486735d3eb263d1fc4b907c9545fa602f9ee",
+        "status": "complete",
+        "summary": "PR changes 1 file(s), with 1 addition(s) and 1 deletion(s).",
+        "risk": {"score": 4.5, "level": "medium", "confidence": 0.95},
+        "evidence_coverage": 1.0,
+        "evidence": [
+          {
+            "kind": "core_change",
+            "path": "src/parser.py",
+            "line": null,
+            "message": "Executable source changed.",
+            "source": "static-rules",
+            "confidence": 0.95,
+            "metadata": {"weight": 2}
+          },
+          {
+            "kind": "missing_tests",
+            "path": "src/parser.py",
+            "line": null,
+            "message": "Source changed without a test change.",
+            "source": "static-rules",
+            "confidence": 0.95,
+            "metadata": {"weight": 1.5}
+          }
+        ],
+        "suggested_tests": ["Add focused unit tests for changed source behavior."],
+        "review_focus": ["Source changed without a test change."],
+        "limitations": [],
+        "provider_metadata": null
+      }
+    },
+    {
+      "id": "manual-04-authentication-without-tests",
+      "fixture": "benchmarks/datasets/pr-risk/fixtures/05-authentication.json",
+      "input_sha256": "cfdd0594a5e96e613877dfed20ebe2b600d73bd7c5c422799e7cf1751921e205",
+      "manual_expectation": {
+        "status": "complete",
+        "risk_level": "high",
+        "required_evidence": ["authentication_change", "missing_tests"],
+        "forbidden_evidence": [],
+        "limitation_contains": null
+      },
+      "recorded_output": {
+        "schema_version": "1",
+        "snapshot_id": "75a7fad785b858a6132d3658155ae67da4bc68929385aa545b866cecdbb40372",
+        "status": "complete",
+        "summary": "PR changes 1 file(s), with 1 addition(s) and 1 deletion(s).",
+        "risk": {"score": 8.5, "level": "high", "confidence": 0.95},
+        "evidence_coverage": 1.0,
+        "evidence": [
+          {
+            "kind": "authentication_change",
+            "path": "src/auth.py",
+            "line": null,
+            "message": "Authentication/security path changed.",
+            "source": "static-rules",
+            "confidence": 0.95,
+            "metadata": {"weight": 6}
+          },
+          {
+            "kind": "missing_tests",
+            "path": "src/auth.py",
+            "line": null,
+            "message": "Source changed without a test change.",
+            "source": "static-rules",
+            "confidence": 0.95,
+            "metadata": {"weight": 1.5}
+          }
+        ],
+        "suggested_tests": [
+          "Add focused unit tests for changed source behavior.",
+          "Run authentication authorization and negative-path tests."
+        ],
+        "review_focus": [
+          "Authentication/security path changed.",
+          "Source changed without a test change."
+        ],
+        "limitations": [],
+        "provider_metadata": null
+      }
+    },
+    {
+      "id": "manual-05-malformed-diff",
+      "fixture": "benchmarks/datasets/pr-risk/fixtures/10-malformed.json",
+      "input_sha256": "b3db07272c3e054a767abad8a9299b49cbdb4ad3d55f6e0fbdb4357425a26650",
+      "manual_expectation": {
+        "status": "partial",
+        "risk_level": "low",
+        "required_evidence": [],
+        "forbidden_evidence": [],
+        "limitation_contains": "Malformed diff"
+      },
+      "recorded_output": {
+        "schema_version": "1",
+        "snapshot_id": "350bdcbaa929f044558b75fd30d449e6a3e9b84f8441df84650530b1dc10a13c",
+        "status": "partial",
+        "summary": "PR changes 0 file(s), with 0 addition(s) and 0 deletion(s).",
+        "risk": {"score": 0.5, "level": "low", "confidence": 0.75},
+        "evidence_coverage": 1.0,
+        "evidence": [],
+        "suggested_tests": [],
+        "review_focus": [],
+        "limitations": ["Malformed diff: no file header found."],
+        "provider_metadata": null
+      }
+    }
+  ]
+}
