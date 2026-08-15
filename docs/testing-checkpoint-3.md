@@ -8,7 +8,7 @@ idempotent, and failure/security gates pass. A Gemini key is not required.
 ```powershell
 uv sync --frozen --extra dev
 uv run ruff check .
-uv run mypy src/maintainerflow
+uv run mypy backend/src/maintainerflow
 uv run pytest -m "not e2e"
 uv run pytest tests/e2e/test_pull_request_check.py `
   tests/e2e/test_ai_outage.py `
@@ -40,7 +40,7 @@ Expected head: `0003_checks_outbox_audit`, with no new upgrade operations detect
 Leave `MAINTAINERFLOW_WORKFLOW_ENABLED=false` when no GitHub App private key is configured:
 
 ```powershell
-docker compose up --build -d
+docker compose up --build -d --wait
 $env:RUN_E2E = "1"
 $env:MAINTAINERFLOW_GITHUB_WEBHOOK_SECRET = "<same value as .env>"
 uv run pytest tests/e2e/test_compose_startup.py tests/e2e/test_webhook_flow.py -m e2e

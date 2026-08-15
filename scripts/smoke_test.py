@@ -61,9 +61,9 @@ def main() -> int:
     }
     if not args.skip_docker:
         if args.start:
-            run("docker", "compose", "up", "--build", "-d", timeout=300)
+            run("docker", "compose", "up", "--build", "-d", "--wait", timeout=600)
         services = compose_services()
-        required = {"api", "db", "redis", "worker", "recovery"}
+        required = {"api", "db", "redis", "worker", "recovery", "frontend"}
         missing = required - services.keys()
         if missing or any(services[item] != "running" for item in required):
             raise RuntimeError(
@@ -73,6 +73,16 @@ def main() -> int:
             raise RuntimeError("health endpoint failed")
         if json_url("http://localhost:8000/ready") != {"status": "ready"}:
             raise RuntimeError("ready endpoint failed")
+        with urllib.request.urlopen("http://localhost:3000/", timeout=10) as response:
+            if b"MaintainerFlow" not in response.read():
+                raise RuntimeError("frontend smoke check failed")
+        if json_url("http://localhost:3000/api/health") != {"status": "ok"}:
+            raise RuntimeError("frontend health proxy failed")
+        if json_url("http://localhost:3000/api/ready") != {"status": "ready"}:
+            raise RuntimeError("frontend readiness proxy failed")
+        openapi = json_url("http://localhost:3000/api/openapi.json")
+        if openapi.get("info", {}).get("title") != "MaintainerFlow":
+            raise RuntimeError("frontend OpenAPI proxy failed")
         run("docker", "compose", "run", "--rm", "--no-deps", "migrate", "alembic", "check")
         revision = run(
             "docker",

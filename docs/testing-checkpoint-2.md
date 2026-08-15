@@ -8,7 +8,7 @@ optional-provider failure path all pass. A Gemini key is not required for the au
 ```powershell
 uv sync --frozen --extra dev
 uv run ruff check .
-uv run mypy src/maintainerflow
+uv run mypy backend/src/maintainerflow
 uv run pytest -m "not e2e"
 uv run pytest tests/e2e/test_cli_analyze.py -m e2e
 ```

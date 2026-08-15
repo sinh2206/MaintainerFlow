@@ -13,7 +13,8 @@ The current `v1.0.0` workflow combines:
   contributor lists, 60-case PR-risk comparison, smoke/upgrade gates, and OSS documentation.
 
 ```text
-GitHub webhook → API → PostgreSQL delivery → Dramatiq worker → PR analysis
+Browser → frontend/Nginx → public API probes
+GitHub webhook → API → PostgreSQL delivery → Redis/Dramatiq worker → PR analysis
                → analysis + audit + outbox → GitHub Check queued/in_progress/completed
                ↘ Issue triage + repository cache → suggestion audit (no GitHub write)
 GitHub compare/tags → Release Assistant → persisted human-review draft (no GitHub write)
@@ -34,12 +35,17 @@ external acceptance gates and are not claimed as completed here.
 For the recommended Docker installation:
 
 - Git.
-- Docker Desktop or another Docker Compose-compatible engine using Linux containers.
+- Docker Desktop or another Docker Compose-compatible engine using Linux containers. Use a recent
+  Compose version that supports `docker compose up --wait`.
 - A public HTTPS URL that forwards to local port `8000` for real GitHub webhooks.
 - A GitHub account allowed to create and install a GitHub App.
 
 For development and local CLI analysis, also install Python `3.12` and
 [`uv`](https://docs.astral.sh/uv/getting-started/installation/).
+
+For frontend development, install Node.js `24` and npm `11` (the production frontend image uses
+the same Node major version during its build). You do not need Node.js when using the prebuilt
+Compose frontend only.
 
 ## Installation from start to finish
 
@@ -83,19 +89,68 @@ MAINTAINERFLOW_AI_ENABLED=false
 Start the stack:
 
 ```powershell
-docker compose up --build -d
-docker compose ps
+docker compose config --quiet
+docker compose up --build -d --wait
+docker compose ps --all
 Invoke-RestMethod http://localhost:8000/health
 Invoke-RestMethod http://localhost:8000/ready
+Invoke-RestMethod http://localhost:3000/api/health
+Invoke-RestMethod http://localhost:3000/api/ready
 ```
 
 Expected responses are `{"status":"ok"}` and `{"status":"ready"}`. The `db`, `redis`, `api`,
-`worker`, and `recovery` services must be running; `migrate` should exit successfully.
+`worker`, `recovery`, and `frontend` services must be running; `migrate` should exit successfully.
+The two API responses and the two frontend-proxy responses must match. Open
+`http://localhost:3000` for the read-only deployment dashboard. It calls the same health and
+readiness endpoints through Nginx at `/api`, and never receives GitHub or Gemini credentials.
+
+| Endpoint | Served by | Purpose |
+| --- | --- | --- |
+| `http://localhost:8000/health` | FastAPI | Liveness only; does not require PostgreSQL. |
+| `http://localhost:8000/ready` | FastAPI | Readiness; requires a successful database ping. |
+| `http://localhost:3000` | Nginx + frontend | Read-only operations dashboard. |
+| `http://localhost:3000/api/health` | Nginx → FastAPI | Dashboard liveness proxy. |
+| `http://localhost:3000/api/ready` | Nginx → FastAPI | Dashboard readiness proxy. |
+| `http://localhost:3000/api/openapi.json` | Nginx → FastAPI | Public API contract. |
+| `https://<public-origin>/webhooks/github` | FastAPI | Signed GitHub webhook; never point it at port `3000`. |
+
+Verify the public OpenAPI contract and the proxy boundary:
+
+```powershell
+$openapi = Invoke-RestMethod http://localhost:3000/api/openapi.json
+$openapi.info.title
+$openapi.paths.PSObject.Properties.Name
+try { Invoke-RestMethod http://localhost:3000/api/webhooks/github } catch { $_.Exception.Response.StatusCode }
+```
+
+The first command prints `MaintainerFlow`; the second lists API paths; the last one must print
+`NotFound`/`404`. The frontend intentionally does not proxy webhook or write endpoints.
 
 Expose `http://localhost:8000` through a development HTTPS tunnel of your choice. Keep the tunnel
 running and note its public origin, for example `https://maintainerflow.example.test`. GitHub's
 documentation lists Smee, ngrok, localtunnel, and Hookdeck as development options; do not use an
 unauthenticated development relay as a production endpoint.
+
+### 2a. Optional local frontend development
+
+Use this when editing the dashboard rather than rebuilding its container. Keep the Compose API
+running on port `8000`; Vite proxies `/api/health` and `/api/ready` to it:
+
+```powershell
+npm ci --prefix frontend
+npm run dev --prefix frontend
+```
+
+Open `http://localhost:5173`. Production-like static output can be checked without Docker:
+
+```powershell
+npm run typecheck --prefix frontend
+npm test --prefix frontend
+npm run build --prefix frontend
+npm exec --prefix frontend vite -- preview --host 127.0.0.1 --port 4173
+```
+
+Stop the preview with `Ctrl+C`. The frontend has no GitHub, database or Gemini credentials.
 
 ### 3. Create the GitHub App
 
@@ -224,8 +279,8 @@ the new `.env` is loaded:
 ```powershell
 docker compose build
 docker compose run --rm --no-deps api maintainerflow config-check
-docker compose up -d --force-recreate
-docker compose ps
+docker compose up -d --force-recreate --wait
+docker compose ps --all
 docker compose logs migrate worker --tail 100
 ```
 
@@ -235,6 +290,9 @@ Expected migration head: `0005_release_assistant`. Check it directly with:
 docker compose exec -T db psql -U maintainerflow -d maintainerflow -Atc `
   "SELECT version_num FROM alembic_version;"
 ```
+
+If `config-check` fails, fix `.env` and recreate the stack. Do not put a real private key or API key
+on the command line; Docker reads them from the ignored `.env` file.
 
 ### 6. Verify the real workflow
 
@@ -272,6 +330,35 @@ docker compose exec -T db psql -U maintainerflow -d maintainerflow -c `
 Expected final states are `deliveries.status=completed`, `analyses.publish_status=completed`, and
 `outbox_events.status=sent`. Re-delivery and worker retry reuse the existing Check instead of
 creating unbounded duplicates.
+
+### 7. Luồng end-to-end và cách đọc log
+
+Frontend và webhook là hai nhánh độc lập nhưng cùng nói chuyện với API:
+
+```text
+Browser → frontend:3000 → Nginx allowlist → /health, /ready, /openapi.json
+GitHub → API:8000/webhooks/github → verify HMAC → PostgreSQL delivery
+       → Redis delivery ID → worker → GitHub read + static/Gemini analysis
+       → PostgreSQL analysis/audit/outbox → worker publisher → GitHub Check
+       → recovery quét delivery chưa hoàn tất và outbox retry/dead-letter
+```
+
+Khi debug một PR, mở ba cửa sổ terminal; lấy `delivery_id` từ response/webhook log rồi đối chiếu
+với các truy vấn SQL ở bước trên:
+
+```powershell
+docker compose logs -f api
+docker compose logs -f worker
+docker compose logs -f recovery
+```
+
+`api` phải ghi nhận webhook `202`; `worker` phải chuyển delivery qua claim/analysis/completed;
+`recovery` chỉ cần ghi hoạt động khi có delivery quá hạn; Check publisher phải kết thúc bằng
+`sent` hoặc `dead_letter` có lỗi đã được redact. Nếu dashboard báo `API Operational` nhưng
+`Database Unavailable`, liveness vẫn đúng và cần xử lý PostgreSQL/readiness thay vì restart frontend.
+
+Frontend không được dùng làm Webhook URL. Webhook URL luôn là
+`https://<public-origin>/webhooks/github` và phải forward đến cổng `8000`.
 
 ## Operating modes
 
@@ -358,17 +445,22 @@ uv run python scripts/smoke_test.py --start
 Run the full credential-free quality gate:
 
 ```powershell
+npm ci --prefix frontend
+npm run typecheck --prefix frontend
+npm test --prefix frontend
+npm run build --prefix frontend
 uv sync --frozen --extra dev
 uv run ruff format --check .
 uv run ruff check .
-uv run mypy src/maintainerflow
+uv run mypy backend/src/maintainerflow
 uv run pytest -m "not e2e"
 uv run pytest -m e2e
 uv run maintainerflow benchmark --suite all --format json
 uv run python scripts/smoke_test.py --skip-docker
 ```
 
-The contract suite traverses CP1 ingestion → CP2 analysis → CP3 Check outbox → CP4 Issue triage →
+The frontend tests validate both health contracts independently and the production bundle. The
+backend contract suite traverses CP1 ingestion → CP2 analysis → CP3 Check outbox → CP4 Issue triage →
 CP5 release persistence in one repository. Hard cases cover replay/idempotency, two concurrent
 PostgreSQL transactions, pagination, rate-budget truncation, every input permutation, hostile
 Markdown/URL/control characters, provider retry duplicates, AI outage, prompt injection, wheel
@@ -397,7 +489,7 @@ Start Docker Desktop, wait until its engine reports ready, and ensure it is usin
 ```powershell
 docker context ls
 docker info
-docker compose up --build -d
+docker compose up --build -d --wait
 docker compose ps
 ```
 
@@ -465,6 +557,8 @@ terminate HTTPS at a trusted proxy, back up PostgreSQL, monitor dead letters, an
 - [Checkpoint acceptance criteria](checkpoint.md)
 - [Contributing guide](CONTRIBUTING.md)
 - [Architecture](docs/architecture.md)
+- [Backend layout and local commands](backend/README.md)
+- [Frontend dashboard and local commands](frontend/README.md)
 - [OSS evidence status](docs/oss-evidence-status.md)
 - [Three-minute demo runbook](docs/demo-video.md)
 - [Five-case manual evaluation evidence](docs/evaluation-evidence.md)

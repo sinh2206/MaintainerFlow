@@ -8,7 +8,7 @@
 
 - [ ] `uv run ruff format --check .`
 - [ ] `uv run ruff check .`
-- [ ] `uv run mypy src/maintainerflow`
+- [ ] `uv run mypy backend/src/maintainerflow`
 - [ ] Relevant unit/integration/E2E tests
 - [ ] Migration/benchmark/smoke checks when affected
 

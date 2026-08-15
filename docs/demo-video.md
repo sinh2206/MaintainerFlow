@@ -21,7 +21,7 @@ Release preview and benchmark are supporting proof, not substitutes for the live
 2. Install the GitHub App using [the least-privilege guide](github-app-setup.md).
 3. Set `WORKFLOW_ENABLED=true`, `CHECK_PUBLISH_ENABLED=true`, `CHECK_MODE=shadow`; keep AI off for
    a deterministic take unless provider behavior is the subject of the demo.
-4. Start Compose and confirm `/health`, `/ready`, all five services and migration
+4. Start Compose and confirm `/health`, `/ready`, the six long-running services and migration
    `0005_release_assistant` before opening the recorder.
 5. Prepare a branch that changes `src/demo_calculator.py` without changing its test. Leave the
    GitHub “Create pull request” page ready, but do not submit it yet.
@@ -36,7 +36,7 @@ private payload, browser password manager or terminal history containing credent
 | Time | Screen | Action and narration |
 | --- | --- | --- |
 | `0:00–0:12` | Repository README/title | “MaintainerFlow turns a pull request into evidence-backed, non-blocking review guidance while keeping the maintainer in control.” |
-| `0:12–0:27` | Terminal | Run `docker compose ps`, then show `/health` and `/ready`. Say: “The API, database, queue, worker and recovery process run in one self-hosted stack.” |
+| `0:12–0:27` | Terminal/browser | Run `docker compose ps`, show the dashboard at `:3000`, then show direct `/health` and `/ready`. Say: “The read-only dashboard observes the API while the API, database, queue, worker and recovery process run in one self-hosted stack.” |
 | `0:27–0:47` | GitHub PR diff | Show the prepared source change and absence of a matching test; click **Create pull request**. Say: “The contributor opens an ordinary PR; there is no special command or repository write by the model.” |
 | `0:47–1:05` | PR Checks tab | Refresh until the MaintainerFlow Check changes from queued/in-progress to completed. Say: “A signed webhook is stored idempotently, analyzed by the worker and published through a transactional outbox.” |
 | `1:05–1:35` | Completed Check details | Point to risk, evidence, changed path, suggested tests and review focus. Say: “This source-only change is flagged with provenance and a focused test suggestion. Shadow mode stays neutral and never blocks or merges.” |
@@ -56,6 +56,8 @@ evidence than a heavily edited video.
 docker compose ps
 Invoke-RestMethod http://localhost:8000/health
 Invoke-RestMethod http://localhost:8000/ready
+Invoke-RestMethod http://localhost:3000/api/health
+Invoke-RestMethod http://localhost:3000/api/ready
 
 uv run maintainerflow release `
   --input examples/demo/release-input.json `

@@ -5,7 +5,7 @@
 ```powershell
 uv sync --extra dev
 uv run ruff check .
-uv run mypy src/maintainerflow
+uv run mypy backend/src/maintainerflow
 uv run pytest -m "not e2e"
 ```
 
@@ -23,13 +23,13 @@ Set a unique value of at least 16 characters for
 `MAINTAINERFLOW_GITHUB_WEBHOOK_SECRET` in `.env`, then run:
 
 ```powershell
-docker compose up --build -d
+docker compose up --build -d --wait
 docker compose ps
 Invoke-RestMethod http://localhost:8000/health
 Invoke-RestMethod http://localhost:8000/ready
 ```
 
-Expected: `db`, `redis`, `api`, `worker`, and `recovery` are running; health is `ok` and readiness
+Expected: `db`, `redis`, `api`, `worker`, `recovery`, and `frontend` are running; health is `ok` and readiness
 is `ready`. `migrate` should have exited successfully.
 
 ## 3. Signed, invalid, and duplicate webhook tests

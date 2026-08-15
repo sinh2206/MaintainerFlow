@@ -17,24 +17,24 @@ Webhook là biên tin cậy đầu tiên của toàn hệ thống. Nếu chữ k
 | File | Chức năng bắt buộc |
 | --- | --- |
 | `pyproject.toml` | Khai báo package, dependency groups `dev/test`, entry point CLI và cấu hình Ruff/mypy/pytest. |
-| `src/maintainerflow/config.py` | Đọc biến môi trường bằng Pydantic Settings; validate GitHub App ID, webhook secret, database/Redis URL; không chứa default secret. |
-| `src/maintainerflow/core/enums.py` | Định nghĩa `DeliveryStatus`: `received/queued/processing/completed/failed_safe`. |
-| `src/maintainerflow/core/errors.py` | Lỗi domain có phân loại: invalid signature, unsupported event, duplicate delivery và transient dependency error. |
-| `src/maintainerflow/core/schemas.py` | Schema metadata chung: repository, installation, delivery và event envelope; không đưa raw secret vào model. |
-| `src/maintainerflow/api/main.py` | Tạo FastAPI app, lifespan, middleware request ID và đăng ký route; không chứa business logic. |
-| `src/maintainerflow/api/dependencies.py` | Cấp config, database session và service dependencies để test có thể override. |
-| `src/maintainerflow/api/routes/health.py` | Trả health/liveness; readiness kiểm tra dependency ở chế độ riêng, không làm liveness phụ thuộc PostgreSQL. |
-| `src/maintainerflow/api/routes/github_webhooks.py` | Đọc raw body, verify chữ ký trước khi parse JSON, lấy header event/delivery và gọi `process_delivery`. |
-| `src/maintainerflow/github/auth.py` | Verify `X-Hub-Signature-256` bằng HMAC constant-time; sau này chứa GitHub App JWT/installation token. |
-| `src/maintainerflow/github/events.py` | Parse event allowlist thành schema nội bộ; event chưa hỗ trợ được acknowledge nhưng không enqueue analysis. |
-| `src/maintainerflow/persistence/database.py` | Tạo SQLAlchemy engine/session và transaction boundary. |
-| `src/maintainerflow/persistence/models.py` | Model `github_installations`, `repositories`, `deliveries`; delivery ID có unique constraint. |
-| `src/maintainerflow/persistence/repositories.py` | Các thao tác insert/claim/complete delivery; che SQLAlchemy khỏi service layer. |
-| `src/maintainerflow/services/process_delivery.py` | Transaction chỉ lưu delivery ở `received`; sau commit mới enqueue bằng ID. Delivery còn `received` được recovery task enqueue lại; duplicate trả kết quả idempotent. |
-| `src/maintainerflow/worker/broker.py` | Cấu hình Dramatiq/Redis, retry/backoff và middleware correlation ID. |
-| `src/maintainerflow/worker/tasks.py` | Nhận `delivery_id`, claim record rồi gọi service; có recovery task quét delivery `received`; không truyền toàn bộ webhook payload qua Redis. |
-| `migrations/versions/0001_foundation.py` | Tạo bảng và unique indexes của checkpoint; downgrade phải chạy được trong môi trường test. |
-| `Dockerfile`, `compose.yaml`, `.env.example` | Chạy API, worker, PostgreSQL và Redis bằng cùng image; healthcheck và secret placeholder rõ ràng. |
+| `backend/src/maintainerflow/config.py` | Đọc biến môi trường bằng Pydantic Settings; validate GitHub App ID, webhook secret, database/Redis URL; không chứa default secret. |
+| `backend/src/maintainerflow/core/enums.py` | Định nghĩa `DeliveryStatus`: `received/queued/processing/completed/failed_safe`. |
+| `backend/src/maintainerflow/core/errors.py` | Lỗi domain có phân loại: invalid signature, unsupported event, duplicate delivery và transient dependency error. |
+| `backend/src/maintainerflow/core/schemas.py` | Schema metadata chung: repository, installation, delivery và event envelope; không đưa raw secret vào model. |
+| `backend/src/maintainerflow/api/main.py` | Tạo FastAPI app, lifespan, middleware request ID và đăng ký route; không chứa business logic. |
+| `backend/src/maintainerflow/api/dependencies.py` | Cấp config, database session và service dependencies để test có thể override. |
+| `backend/src/maintainerflow/api/routes/health.py` | Trả health/liveness; readiness kiểm tra dependency ở chế độ riêng, không làm liveness phụ thuộc PostgreSQL. |
+| `backend/src/maintainerflow/api/routes/github_webhooks.py` | Đọc raw body, verify chữ ký trước khi parse JSON, lấy header event/delivery và gọi `process_delivery`. |
+| `backend/src/maintainerflow/github/auth.py` | Verify `X-Hub-Signature-256` bằng HMAC constant-time; sau này chứa GitHub App JWT/installation token. |
+| `backend/src/maintainerflow/github/events.py` | Parse event allowlist thành schema nội bộ; event chưa hỗ trợ được acknowledge nhưng không enqueue analysis. |
+| `backend/src/maintainerflow/persistence/database.py` | Tạo SQLAlchemy engine/session và transaction boundary. |
+| `backend/src/maintainerflow/persistence/models.py` | Model `github_installations`, `repositories`, `deliveries`; delivery ID có unique constraint. |
+| `backend/src/maintainerflow/persistence/repositories.py` | Các thao tác insert/claim/complete delivery; che SQLAlchemy khỏi service layer. |
+| `backend/src/maintainerflow/services/process_delivery.py` | Transaction chỉ lưu delivery ở `received`; sau commit mới enqueue bằng ID. Delivery còn `received` được recovery task enqueue lại; duplicate trả kết quả idempotent. |
+| `backend/src/maintainerflow/worker/broker.py` | Cấu hình Dramatiq/Redis, retry/backoff và middleware correlation ID. |
+| `backend/src/maintainerflow/worker/tasks.py` | Nhận `delivery_id`, claim record rồi gọi service; có recovery task quét delivery `received`; không truyền toàn bộ webhook payload qua Redis. |
+| `backend/migrations/versions/0001_foundation.py` | Tạo bảng và unique indexes của checkpoint; downgrade phải chạy được trong môi trường test. |
+| `backend/Dockerfile`, `compose.yaml`, `.env.example` | Chạy API, worker, PostgreSQL và Redis bằng cùng image; healthcheck và secret placeholder rõ ràng. |
 | `.github/workflows/ci.yml` | Cài từ lockfile rồi chạy migration check, Ruff, mypy và pytest. |
 
 ### Hành vi bắt buộc
@@ -48,7 +48,8 @@ Webhook là biên tin cậy đầu tiên của toàn hệ thống. Nếu chữ k
 - [x]  Parse event `pull_request.opened` và `pull_request.synchronize`.
 - [x]  Lưu `X-GitHub-Delivery` để chống xử lý trùng.
 - [x]  Tạo PostgreSQL schema tối thiểu.
-- [x]  Dockerfile + `compose.yaml` định nghĩa API, worker, recovery, PostgreSQL và Redis.
+- [x]  `backend/Dockerfile`, `frontend/Dockerfile` và `compose.yaml` định nghĩa API, worker,
+  recovery, PostgreSQL, Redis và dashboard.
 - [x]  GitHub Actions chạy migration check, lint, type-check và unit/integration tests.
 
 ### Khả năng mở rộng
@@ -130,7 +131,7 @@ Expected: người khác có thể chạy mà không sửa source code.
 ### Bằng chứng triển khai hiện tại
 
 - [x] `uv run ruff check .` pass.
-- [x] `uv run mypy src/maintainerflow` pass strict mode.
+- [x] `uv run mypy backend/src/maintainerflow` pass strict mode.
 - [x] `uv run pytest -m "not e2e"`: 22 pass, 2 Docker E2E deselected.
 - [x] Alembic upgrade → downgrade → upgrade pass; `alembic check` không phát hiện schema drift.
 - [x] `docker compose config --quiet` pass.
@@ -157,22 +158,22 @@ Analysis engine cần được kiểm chứng độc lập trước khi xuất k
 
 | File | Chức năng bắt buộc |
 | --- | --- |
-| `src/maintainerflow/github/client.py` | Lấy PR metadata, changed files, compare diff và nội dung cần thiết tại đúng SHA; có timeout, pagination và rate-limit metadata. |
-| `src/maintainerflow/analysis/snapshot.py` | Tạo immutable snapshot gồm repo, PR number, base/head SHA, diff/config hash và version rules/prompt/model. |
-| `src/maintainerflow/analysis/diff.py` | Parse unified diff an toàn; giới hạn kích thước; nhận biết added/deleted/renamed/binary/malformed file. |
-| `src/maintainerflow/analysis/evidence.py` | Chuẩn hóa evidence có `kind`, `path`, `line`, `message`, `source` và confidence; deduplicate evidence. |
-| `src/maintainerflow/analysis/risk.py` | Chạy deterministic rules, chuẩn hóa feature và tính score/level; không gọi GitHub hoặc AI trực tiếp. |
-| `src/maintainerflow/analysis/report.py` | Tổng hợp static và AI signal thành `AnalysisResult` có schema version, status, confidence, evidence coverage và limitations. |
-| `src/maintainerflow/ai/base.py` | Protocol `AIProvider`; input/output typed, timeout/cost metadata và lỗi provider chuẩn hóa. |
-| `src/maintainerflow/ai/gemini.py` | Gemini 3.5 Flash-Lite adapter; structured output, timeout, retry có giới hạn và không trả raw text vào business logic. |
-| `src/maintainerflow/ai/prompts/pr_analysis.md` | Prompt được version hóa; coi PR title/body/diff là untrusted data và chỉ yêu cầu phân tích. |
-| `src/maintainerflow/core/schemas.py` | Bổ sung `AnalysisSnapshot`, `Evidence`, `Risk`, `AnalysisResult`; đây là contract duy nhất cho database/CLI/GitHub formatter. |
-| `src/maintainerflow/core/policies.py` | Confidence gate: warning `MEDIUM/HIGH` phải có evidence; thiếu evidence thì hạ confidence/status. |
-| `src/maintainerflow/services/analyze_pull_request.py` | Điều phối fetch → snapshot → diff → static rules → optional AI → policy → persist report. |
-| `src/maintainerflow/persistence/models.py` | Bổ sung `analysis_snapshots`, `analyses`, `evidence`; không lưu full diff nếu policy cấm. |
-| `src/maintainerflow/persistence/repositories.py` | Lưu/đọc snapshot và report theo idempotency key; không để service viết ORM query. |
-| `migrations/versions/0002_pr_analysis.py` | Tạo bảng/index cho snapshot, analysis và evidence. |
-| `src/maintainerflow/cli/analyze.py` | Chạy analyzer bằng fixture/local JSON và in structured report; dùng cùng service với worker. |
+| `backend/src/maintainerflow/github/client.py` | Lấy PR metadata, changed files, compare diff và nội dung cần thiết tại đúng SHA; có timeout, pagination và rate-limit metadata. |
+| `backend/src/maintainerflow/analysis/snapshot.py` | Tạo immutable snapshot gồm repo, PR number, base/head SHA, diff/config hash và version rules/prompt/model. |
+| `backend/src/maintainerflow/analysis/diff.py` | Parse unified diff an toàn; giới hạn kích thước; nhận biết added/deleted/renamed/binary/malformed file. |
+| `backend/src/maintainerflow/analysis/evidence.py` | Chuẩn hóa evidence có `kind`, `path`, `line`, `message`, `source` và confidence; deduplicate evidence. |
+| `backend/src/maintainerflow/analysis/risk.py` | Chạy deterministic rules, chuẩn hóa feature và tính score/level; không gọi GitHub hoặc AI trực tiếp. |
+| `backend/src/maintainerflow/analysis/report.py` | Tổng hợp static và AI signal thành `AnalysisResult` có schema version, status, confidence, evidence coverage và limitations. |
+| `backend/src/maintainerflow/ai/base.py` | Protocol `AIProvider`; input/output typed, timeout/cost metadata và lỗi provider chuẩn hóa. |
+| `backend/src/maintainerflow/ai/gemini.py` | Gemini 3.5 Flash-Lite adapter; structured output, timeout, retry có giới hạn và không trả raw text vào business logic. |
+| `backend/src/maintainerflow/ai/prompts/pr_analysis.md` | Prompt được version hóa; coi PR title/body/diff là untrusted data và chỉ yêu cầu phân tích. |
+| `backend/src/maintainerflow/core/schemas.py` | Bổ sung `AnalysisSnapshot`, `Evidence`, `Risk`, `AnalysisResult`; đây là contract duy nhất cho database/CLI/GitHub formatter. |
+| `backend/src/maintainerflow/core/policies.py` | Confidence gate: warning `MEDIUM/HIGH` phải có evidence; thiếu evidence thì hạ confidence/status. |
+| `backend/src/maintainerflow/services/analyze_pull_request.py` | Điều phối fetch → snapshot → diff → static rules → optional AI → policy → persist report. |
+| `backend/src/maintainerflow/persistence/models.py` | Bổ sung `analysis_snapshots`, `analyses`, `evidence`; không lưu full diff nếu policy cấm. |
+| `backend/src/maintainerflow/persistence/repositories.py` | Lưu/đọc snapshot và report theo idempotency key; không để service viết ORM query. |
+| `backend/migrations/versions/0002_pr_analysis.py` | Tạo bảng/index cho snapshot, analysis và evidence. |
+| `backend/src/maintainerflow/cli/analyze.py` | Chạy analyzer bằng fixture/local JSON và in structured report; dùng cùng service với worker. |
 | `benchmarks/datasets/pr-risk/manifest.json` | Khai báo fixture, ground truth, nguồn/license và expected risk range. |
 
 ### Hành vi bắt buộc
@@ -311,17 +312,17 @@ Gọi GitHub API là side effect bên ngoài transaction database: request có t
 
 | File | Chức năng bắt buộc |
 | --- | --- |
-| `src/maintainerflow/github/checks.py` | Tạo/update Check Run, map report sang summary/annotations, dùng `external_id=analysis_id`, giới hạn annotation theo GitHub API. |
-| `src/maintainerflow/core/policies.py` | Quyết định `shadow/suggestion`, kết luận check, action nào được phép và khi nào report `STALE` không được publish. |
-| `src/maintainerflow/services/publish_check.py` | Từ report đã validate tạo GitHub command/outbox record; không gọi network trong transaction tạo command. |
-| `src/maintainerflow/services/record_feedback.py` | Validate `check_run.requested_action`, ghi accept/reject/useful/not-useful vào audit; không biến feedback thành write action khác. |
-| `src/maintainerflow/persistence/outbox.py` | Claim outbox bằng lease, mark sent/retry/dead-letter và giữ idempotency key. |
-| `src/maintainerflow/persistence/models.py` | Bổ sung `outbox_events`, `audit_events`, GitHub check ID và attempt/error metadata đã redact. |
-| `src/maintainerflow/persistence/repositories.py` | Transaction ghi analysis + audit + outbox nguyên tử; query check hiện có theo analysis/head SHA. |
-| `src/maintainerflow/worker/tasks.py` | Thêm task analyze PR, dispatch outbox và retry transient GitHub errors; permanent error chuyển `failed_safe`. |
-| `src/maintainerflow/github/events.py` | Parse `pull_request` và `check_run.requested_action`; reject action identifier ngoài allowlist. |
-| `src/maintainerflow/analysis/report.py` | Render-safe fields, giới hạn độ dài và loại bỏ content không đủ provenance trước publisher. |
-| `migrations/versions/0003_checks_outbox_audit.py` | Tạo outbox/audit, unique idempotency index và relation tới analysis. |
+| `backend/src/maintainerflow/github/checks.py` | Tạo/update Check Run, map report sang summary/annotations, dùng `external_id=analysis_id`, giới hạn annotation theo GitHub API. |
+| `backend/src/maintainerflow/core/policies.py` | Quyết định `shadow/suggestion`, kết luận check, action nào được phép và khi nào report `STALE` không được publish. |
+| `backend/src/maintainerflow/services/publish_check.py` | Từ report đã validate tạo GitHub command/outbox record; không gọi network trong transaction tạo command. |
+| `backend/src/maintainerflow/services/record_feedback.py` | Validate `check_run.requested_action`, ghi accept/reject/useful/not-useful vào audit; không biến feedback thành write action khác. |
+| `backend/src/maintainerflow/persistence/outbox.py` | Claim outbox bằng lease, mark sent/retry/dead-letter và giữ idempotency key. |
+| `backend/src/maintainerflow/persistence/models.py` | Bổ sung `outbox_events`, `audit_events`, GitHub check ID và attempt/error metadata đã redact. |
+| `backend/src/maintainerflow/persistence/repositories.py` | Transaction ghi analysis + audit + outbox nguyên tử; query check hiện có theo analysis/head SHA. |
+| `backend/src/maintainerflow/worker/tasks.py` | Thêm task analyze PR, dispatch outbox và retry transient GitHub errors; permanent error chuyển `failed_safe`. |
+| `backend/src/maintainerflow/github/events.py` | Parse `pull_request` và `check_run.requested_action`; reject action identifier ngoài allowlist. |
+| `backend/src/maintainerflow/analysis/report.py` | Render-safe fields, giới hạn độ dài và loại bỏ content không đủ provenance trước publisher. |
+| `backend/migrations/versions/0003_checks_outbox_audit.py` | Tạo outbox/audit, unique idempotency index và relation tới analysis. |
 | `tests/fixtures/adversarial/` | Fixture prompt injection, Markdown phá layout, path/line giả và secret-like content. |
 
 ### Hành vi bắt buộc
@@ -475,21 +476,21 @@ Issue classification, duplicate search và repository history cần nhiều dữ
 
 | File | Chức năng bắt buộc |
 | --- | --- |
-| `src/maintainerflow/issue/classifier.py` | Phân loại `bug/feature/docs/question/maintenance`; trả class, confidence và evidence text span. |
-| `src/maintainerflow/issue/duplicate.py` | Xếp hạng issue tương tự bằng lexical baseline trước; interface cho retrieval/embedding backend tương lai. |
-| `src/maintainerflow/issue/priority.py` | Gợi ý priority từ severity, affected scope, reproducibility và repository policy; không tự đóng/assign issue. |
-| `src/maintainerflow/issue/labels.py` | Map kết quả nội bộ sang label repository; xử lý label thiếu/alias mà không tự tạo label trong shadow mode. |
-| `src/maintainerflow/analysis/repository.py` | Index file tree và metadata tại commit SHA; cache theo repo + SHA + analyzer version. |
-| `src/maintainerflow/analysis/languages/base.py` | Protocol `LanguageAnalyzer` cho symbol/import/test mapping; không chứa logic Python. |
-| `src/maintainerflow/analysis/languages/python.py` | Parse Python AST an toàn, thu module/import/public symbol; syntax error tạo limitation thay vì crash. |
-| `src/maintainerflow/analysis/dependency.py` | Xây dependency graph, in-degree/centrality cơ bản và liên kết source-test. |
-| `src/maintainerflow/analysis/history.py` | Thu previous PR, bug-fix/revert, file churn và reviewer history dưới dạng evidence có provenance. |
-| `src/maintainerflow/services/index_repository.py` | Điều phối checkout/fetch metadata → language analyzers → graph → cache; áp dụng retention/privacy. |
-| `src/maintainerflow/services/analyze_issue.py` | Điều phối normalize → classify → duplicate → priority → label suggestion → policy/audit. |
-| `src/maintainerflow/ai/prompts/issue_triage.md` | Prompt structured, version hóa và coi issue body/comment là untrusted content. |
-| `src/maintainerflow/github/client.py` | Bổ sung pagination cho issues, commits, reviews và compare history với rate-limit budget. |
-| `src/maintainerflow/persistence/models.py` | Bổ sung issue analysis, repository index/cache và historical evidence; không persist body/source khi config cấm. |
-| `migrations/versions/0004_issue_repository_context.py` | Tạo schema/index mới và retention-friendly foreign keys. |
+| `backend/src/maintainerflow/issue/classifier.py` | Phân loại `bug/feature/docs/question/maintenance`; trả class, confidence và evidence text span. |
+| `backend/src/maintainerflow/issue/duplicate.py` | Xếp hạng issue tương tự bằng lexical baseline trước; interface cho retrieval/embedding backend tương lai. |
+| `backend/src/maintainerflow/issue/priority.py` | Gợi ý priority từ severity, affected scope, reproducibility và repository policy; không tự đóng/assign issue. |
+| `backend/src/maintainerflow/issue/labels.py` | Map kết quả nội bộ sang label repository; xử lý label thiếu/alias mà không tự tạo label trong shadow mode. |
+| `backend/src/maintainerflow/analysis/repository.py` | Index file tree và metadata tại commit SHA; cache theo repo + SHA + analyzer version. |
+| `backend/src/maintainerflow/analysis/languages/base.py` | Protocol `LanguageAnalyzer` cho symbol/import/test mapping; không chứa logic Python. |
+| `backend/src/maintainerflow/analysis/languages/python.py` | Parse Python AST an toàn, thu module/import/public symbol; syntax error tạo limitation thay vì crash. |
+| `backend/src/maintainerflow/analysis/dependency.py` | Xây dependency graph, in-degree/centrality cơ bản và liên kết source-test. |
+| `backend/src/maintainerflow/analysis/history.py` | Thu previous PR, bug-fix/revert, file churn và reviewer history dưới dạng evidence có provenance. |
+| `backend/src/maintainerflow/services/index_repository.py` | Điều phối checkout/fetch metadata → language analyzers → graph → cache; áp dụng retention/privacy. |
+| `backend/src/maintainerflow/services/analyze_issue.py` | Điều phối normalize → classify → duplicate → priority → label suggestion → policy/audit. |
+| `backend/src/maintainerflow/ai/prompts/issue_triage.md` | Prompt structured, version hóa và coi issue body/comment là untrusted content. |
+| `backend/src/maintainerflow/github/client.py` | Bổ sung pagination cho issues, commits, reviews và compare history với rate-limit budget. |
+| `backend/src/maintainerflow/persistence/models.py` | Bổ sung issue analysis, repository index/cache và historical evidence; không persist body/source khi config cấm. |
+| `backend/migrations/versions/0004_issue_repository_context.py` | Tạo schema/index mới và retention-friendly foreign keys. |
 | `benchmarks/datasets/issue-classification/manifest.json` | ≥100 issue có label ground truth, nguồn/license và split cố định. |
 | `benchmarks/datasets/duplicate-issues/manifest.json` | Positive, negative và hard-negative groups; split theo issue family để chống leakage. |
 
@@ -613,12 +614,12 @@ Release automation chỉ đáng tin khi event processing, analysis, policy và a
 
 | File | Chức năng bắt buộc |
 | --- | --- |
-| `src/maintainerflow/release/changelog.py` | Nhóm merged PR theo category từ label/title/config; kết quả deterministic và giữ PR URL. |
-| `src/maintainerflow/release/breaking.py` | Phát hiện breaking-change candidate từ label, conventional marker, public API evidence; luôn yêu cầu maintainer xác nhận. |
-| `src/maintainerflow/release/notes.py` | Render Markdown release candidate, contributor list, compare range và limitations. |
-| `src/maintainerflow/services/generate_release_notes.py` | Điều phối tags/releases → merged PRs → classification → breaking scan → persisted draft/audit. |
-| `src/maintainerflow/cli/release.py` | Lệnh preview/export release notes; mặc định không publish GitHub Release. |
-| `src/maintainerflow/cli/benchmark.py` | Chạy dataset version cố định và xuất JSON/Markdown report cùng environment metadata. |
+| `backend/src/maintainerflow/release/changelog.py` | Nhóm merged PR theo category từ label/title/config; kết quả deterministic và giữ PR URL. |
+| `backend/src/maintainerflow/release/breaking.py` | Phát hiện breaking-change candidate từ label, conventional marker, public API evidence; luôn yêu cầu maintainer xác nhận. |
+| `backend/src/maintainerflow/release/notes.py` | Render Markdown release candidate, contributor list, compare range và limitations. |
+| `backend/src/maintainerflow/services/generate_release_notes.py` | Điều phối tags/releases → merged PRs → classification → breaking scan → persisted draft/audit. |
+| `backend/src/maintainerflow/cli/release.py` | Lệnh preview/export release notes; mặc định không publish GitHub Release. |
+| `backend/src/maintainerflow/cli/benchmark.py` | Chạy dataset version cố định và xuất JSON/Markdown report cùng environment metadata. |
 | `benchmarks/runners/pr_risk.py` | Đánh giá risk/evidence/test suggestion cho từng strategy. |
 | `benchmarks/runners/issue_triage.py` | Đánh giá classification/duplicate trên split khóa trước. |
 | `benchmarks/runners/compare.py` | So sánh Static-only, AI-only, Hybrid và Hybrid+History; tính latency/cost/calibration. |
@@ -728,7 +729,7 @@ Expected: họ hoàn thành mà không cần bạn sửa code trực tiếp cho 
 ```bash
 pytest
 ruff check .
-mypy src/maintainerflow
+mypy backend/src/maintainerflow
 ```
 
 Expected: tất cả pass.
@@ -751,13 +752,16 @@ Expected: tất cả pass.
 - [x] Có 7 `good first issue`/contribution task rõ ràng.
 - [x] Có roadmap sau v1.0.
 
-### Bằng chứng triển khai local (2026-08-13)
+### Bằng chứng triển khai local (2026-08-15)
 
-- `149` unit/integration test không-E2E pass; `15` E2E pass khi Docker bật.
-- Ruff format/check toàn repo và mypy strict trên `src/maintainerflow` pass.
+- `151` unit/integration test không-E2E pass; `11` E2E credential-free pass và `4` Docker E2E
+  được skip đúng điều kiện vì Docker Desktop đang tắt.
+- Frontend TypeScript: `4/4` test pass, typecheck pass và Vite production build pass.
+- Ruff format/check toàn repo và mypy strict trên `backend/src/maintainerflow` pass.
 - Fresh wheel cài trong virtualenv trống rồi chạy `analyze` và cả hai benchmark suite thành công.
-- Compose build image `maintainerflow==1.0.0`; API, database, Redis, worker và recovery healthy;
-  smoke xác nhận Alembic head `0005_release_assistant` và không có schema drift.
+- `docker compose config` pass và manifest của ba base image đều tồn tại; build/start Compose mới cần
+  chạy lại khi Docker Desktop bật. Lần kiểm tra trước tái cấu trúc đã xác nhận backend, PostgreSQL,
+  Redis, worker, recovery và Alembic head `0005_release_assistant` hoạt động.
 - PostgreSQL test nâng `0004 → 0005 → 0004` giữ nguyên delivery/issue/audit; race test với hai
   transaction đồng thời chỉ tạo đúng một release draft.
 - PR-risk v2 có 60 scenario tổng hợp, split cố định `15/15/30`; test split Macro-F1:

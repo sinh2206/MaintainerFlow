@@ -2,6 +2,7 @@ import json
 import os
 import subprocess
 import urllib.request
+from urllib.error import HTTPError
 
 import pytest
 
@@ -20,9 +21,23 @@ def test_compose_services_and_health() -> None:
     )
     services = [json.loads(line) for line in result.stdout.splitlines() if line]
     names = {service["Service"] for service in services}
-    assert {"api", "db", "redis", "worker", "recovery"} <= names
+    assert {"api", "db", "redis", "worker", "recovery", "frontend"} <= names
 
     with urllib.request.urlopen("http://localhost:8000/health") as response:
         assert json.load(response) == {"status": "ok"}
     with urllib.request.urlopen("http://localhost:8000/ready") as response:
         assert json.load(response) == {"status": "ready"}
+    with urllib.request.urlopen("http://localhost:3000/") as response:
+        assert "MaintainerFlow" in response.read().decode()
+    with urllib.request.urlopen("http://localhost:3000/api/health") as response:
+        assert json.load(response) == {"status": "ok"}
+    with urllib.request.urlopen("http://localhost:3000/api/ready") as response:
+        assert json.load(response) == {"status": "ready"}
+    with urllib.request.urlopen("http://localhost:3000/api/openapi.json") as response:
+        assert json.load(response)["info"]["title"] == "MaintainerFlow"
+    try:
+        urllib.request.urlopen("http://localhost:3000/api/webhooks/github")
+    except HTTPError as error:
+        assert error.code == 404
+    else:
+        raise AssertionError("frontend proxy exposed a non-read-only API path")

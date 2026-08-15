@@ -9,7 +9,7 @@ privacy defaults all pass.
 uv sync --frozen --extra dev
 uv run ruff format --check .
 uv run ruff check .
-uv run mypy src/maintainerflow
+uv run mypy backend/src/maintainerflow
 uv run pytest -m "not e2e"
 uv run pytest tests/e2e/test_issue_triage.py -m e2e
 uv run python benchmarks/runners/issue_triage.py
@@ -21,7 +21,7 @@ prints dataset versions, Macro F1, Recall@3, and MRR and exits non-zero below ei
 ## Compose and migration checks
 
 ```powershell
-docker compose up --build -d
+docker compose up --build -d --wait
 docker compose ps
 Invoke-RestMethod http://localhost:8000/health
 Invoke-RestMethod http://localhost:8000/ready

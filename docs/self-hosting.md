@@ -23,14 +23,17 @@ Validate before starting:
 ```powershell
 docker compose config
 docker compose build
-docker compose up -d
+docker compose up -d --build --wait
 docker compose ps
 Invoke-RestMethod http://localhost:8000/health
 Invoke-RestMethod http://localhost:8000/ready
 ```
 
-The one-shot `migrate` service runs `alembic upgrade head` before API/worker startup. `api`, `db` and
-`redis` should be healthy; `worker` and `recovery` should remain running. Inspect failures with
+The read-only dashboard is available at `http://localhost:3000`. Keep port `8000` as the webhook
+target; port `3000` is presentation only and does not accept GitHub events.
+
+The one-shot `migrate` service runs `alembic upgrade head` before API/worker startup. `frontend`,
+`api`, `db` and `redis` should be healthy; `worker` and `recovery` should remain running. Inspect failures with
 `docker compose logs --tail 200 SERVICE`.
 
 Never use the example PostgreSQL password for an internet-connected deployment. Restrict port 8000

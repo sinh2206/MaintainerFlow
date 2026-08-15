@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Read-only operations dashboard for MaintainerFlow." />
+    <link rel="icon" href="/mark.svg" type="image/svg+xml" />
+    <title>MaintainerFlow</title>
+  </head>
+  <body>
+    <header class="nav shell">
+      <a class="brand" href="/" aria-label="MaintainerFlow home">
+        <img src="/mark.svg" width="32" height="32" alt="" />
+        <span>MaintainerFlow</span>
+      </a>
+      <nav aria-label="Primary navigation">
+        <a href="#system">System</a>
+        <a href="#capabilities">Capabilities</a>
+        <a href="/api/openapi.json">OpenAPI</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero shell">
+        <div class="eyebrow"><span></span> Open-source maintainer intelligence</div>
+        <h1>Know where to look<br />before you review.</h1>
+        <p class="lede">
+          Evidence-backed PR risk, Issue triage and release drafts—without handing merge,
+          close or release decisions to AI.
+        </p>
+        <div class="hero-actions">
+          <a class="button primary" href="#system">Check deployment</a>
+          <a class="button secondary" href="/api/openapi.json">Explore API</a>
+        </div>
+        <div class="terminal" aria-label="Example MaintainerFlow analysis">
+          <div class="terminal-bar"><i></i><i></i><i></i><span>PR #184 · analysis</span></div>
+          <div class="terminal-body">
+            <div><span class="key">risk</span><strong class="amber"> MEDIUM · 6.8 / 10</strong></div>
+            <div><span class="key">evidence</span> auth boundary changed · regression test absent</div>
+            <div><span class="key">focus</span> src/auth/session.py:118–163</div>
+            <div><span class="key">policy</span><strong class="green"> suggestion only · maintainer decides</strong></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="system" class="system-section">
+        <div class="shell">
+          <div class="section-heading">
+            <div>
+              <p class="kicker">Deployment</p>
+              <h2>System status</h2>
+            </div>
+            <button id="refresh" class="refresh" type="button">Refresh status</button>
+          </div>
+          <p id="status-announcement" class="sr-only" aria-live="polite"></p>
+          <div class="status-grid">
+            <article class="status-card" data-service="api">
+              <div class="status-title"><span class="status-dot"></span><h3>API</h3></div>
+              <strong class="status-value">Checking…</strong>
+              <p>FastAPI process and request pipeline</p>
+            </article>
+            <article class="status-card" data-service="database">
+              <div class="status-title"><span class="status-dot"></span><h3>Database</h3></div>
+              <strong class="status-value">Checking…</strong>
+              <p>Readiness probe through SQLAlchemy</p>
+            </article>
+          </div>
+          <p id="observed-at" class="observed-at">Contacting the deployment…</p>
+        </div>
+      </section>
+
+      <section id="capabilities" class="capabilities shell">
+        <div class="section-heading">
+          <div><p class="kicker">One safe workflow</p><h2>From webhook to evidence</h2></div>
+        </div>
+        <div class="capability-grid">
+          <article><span>01</span><h3>Signed ingestion</h3><p>Verifies GitHub signatures, deduplicates deliveries and recovers interrupted work.</p></article>
+          <article><span>02</span><h3>Hybrid analysis</h3><p>Combines deterministic rules, repository context and optional Gemini signals.</p></article>
+          <article><span>03</span><h3>Safe publishing</h3><p>Uses policy gates and a transactional outbox for non-blocking GitHub Checks.</p></article>
+          <article><span>04</span><h3>Release evidence</h3><p>Builds deterministic changelogs and flags breaking candidates for human review.</p></article>
+        </div>
+      </section>
+
+      <section class="principle shell">
+        <p class="kicker">The invariant</p>
+        <blockquote>AI suggests. <em>Maintainers decide.</em></blockquote>
+        <p>Shadow mode cannot merge, close, label, edit branches or publish a release.</p>
+      </section>
+    </main>
+
+    <footer class="shell">
+      <span>MaintainerFlow · Apache-2.0</span>
+      <a href="/api/health">Raw health response</a>
+    </footer>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

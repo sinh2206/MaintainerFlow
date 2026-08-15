@@ -38,7 +38,7 @@ dev = [
 maintainerflow = "maintainerflow.cli.app:app"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/maintainerflow"]
+packages = ["backend/src/maintainerflow"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "benchmarks" = "benchmarks"
@@ -60,7 +60,7 @@ select = ["E", "F", "I", "UP", "B", "SIM", "ASYNC"]
 python_version = "3.12"
 strict = true
 packages = ["maintainerflow"]
-mypy_path = "src"
+mypy_path = "backend/src"
 plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]

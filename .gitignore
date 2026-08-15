@@ -10,5 +10,7 @@ __pycache__/
 htmlcov/
 dist/
 build/
+node_modules/
+*.tsbuildinfo
 *.egg-info/
 *.db

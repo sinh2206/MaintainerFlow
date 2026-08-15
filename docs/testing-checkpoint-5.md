@@ -9,7 +9,7 @@ reproducible from this checkout; it must not be used to claim the second.
 uv sync --frozen --extra dev
 uv run ruff format --check .
 uv run ruff check .
-uv run mypy src/maintainerflow
+uv run mypy backend/src/maintainerflow
 uv run pytest -m "not e2e"
 uv run pytest -m e2e
 uv run maintainerflow benchmark --suite all --format json --output benchmark-report.json
@@ -32,14 +32,14 @@ MAINTAINERFLOW_CHECK_PUBLISH_ENABLED=false
 Then run:
 
 ```powershell
-docker compose up --build -d
+docker compose up --build -d --wait
 uv run python scripts/smoke_test.py
 $env:RUN_E2E = "1"
 $env:MAINTAINERFLOW_GITHUB_WEBHOOK_SECRET = "<same value as .env>"
 uv run pytest -m e2e
 ```
 
-Expected: all five long-running services are healthy, Alembic is at
+Expected: all six long-running services are healthy, Alembic is at
 `0005_release_assistant`, schema drift is empty, CP4 data survives the CP5 upgrade/downgrade, and
 two concurrent transactions for the same release input create one draft identity.
 

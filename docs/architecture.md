@@ -21,6 +21,8 @@ FastAPI ingestion -> PostgreSQL delivery -> Redis/Dramatiq worker
                  policy + outbox -> GitHub Checks API
 
 Offline CLI -> PR fixture analysis / release-note preview / reproducible benchmark
+
+Maintainer browser -> Nginx frontend -> /api/health, /api/ready, /api/openapi.json -> FastAPI
 ```
 
 ### Component diagram
@@ -32,6 +34,7 @@ flowchart LR
     Gemini[Gemini API<br/>optional]
 
     subgraph Runtime[MaintainerFlow runtime]
+        Frontend[TypeScript dashboard<br/>Nginx]
         API[FastAPI webhook API]
         Queue[Redis queue]
         Worker[Dramatiq worker]
@@ -45,6 +48,8 @@ flowchart LR
     Reports[JSON / Markdown reports]
 
     User -->|PR, Issue, review feedback| GitHub
+    User -->|read deployment status| Frontend
+    Frontend -->|same-origin public probes| API
     GitHub -->|signed webhook| API
     API -->|minimal delivery transaction| DB
     API -->|delivery ID only| Queue
@@ -93,7 +98,9 @@ sequenceDiagram
     GH-->>User: Show risk, evidence and suggested tests
 ```
 
-Runtime services are `api`, `worker`, `recovery`, PostgreSQL, and Redis. PostgreSQL is the system
+Runtime services are `frontend`, `api`, `worker`, `recovery`, PostgreSQL, and Redis. The frontend
+is a separate read-only failure domain: it proxies public probes but does not handle webhook
+delivery or receive application secrets. PostgreSQL is the system
 of record. Redis carries task notifications; losing a notification does not lose a delivery because
 the recovery process re-enqueues expired or unqueued work.
 
@@ -101,6 +108,7 @@ the recovery process re-enqueues expired or unqueued work.
 
 | Layer | Packages | Responsibility |
 | --- | --- | --- |
+| Presentation | `frontend` | Render public deployment status and API-doc links; no domain rules or secrets. |
 | Transport | `api`, `github`, `cli` | Validate input, call GitHub, render CLI output; no analysis rules. |
 | Orchestration | `services`, `worker` | Transactions, leases, idempotency and workflow order. |
 | Domain | `analysis`, `issue`, `release`, `core` | Pure parsing, scoring, classification, policy and rendering. |

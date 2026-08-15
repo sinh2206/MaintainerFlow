@@ -7,10 +7,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 COPY --from=ghcr.io/astral-sh/uv:0.10.6 /uv /usr/local/bin/uv
 COPY pyproject.toml uv.lock README.md LICENSE ./
-COPY src ./src
+COPY backend/src ./backend/src
 COPY benchmarks ./benchmarks
 COPY alembic.ini ./
-COPY migrations ./migrations
+COPY backend/migrations ./backend/migrations
 RUN uv sync --frozen --no-dev
 
 USER 65532:65532

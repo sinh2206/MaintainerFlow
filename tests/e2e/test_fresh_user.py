@@ -13,7 +13,7 @@ ROOT = Path(__file__).parents[2]
 
 def source_hash() -> str:
     digest = hashlib.sha256()
-    for path in sorted((ROOT / "src").rglob("*.py")):
+    for path in sorted((ROOT / "backend/src").rglob("*.py")):
         digest.update(path.relative_to(ROOT).as_posix().encode())
         digest.update(path.read_bytes())
     return digest.hexdigest()
@@ -43,7 +43,9 @@ def test_fresh_wheel_install_and_smoke_do_not_modify_source(tmp_path: Path) -> N
         packaged = set(archive.getnames())
     assert any(name.endswith("/README.md") for name in packaged)
     assert any(name.endswith("/benchmarks/datasets/pr-risk/manifest.json") for name in packaged)
-    assert any(name.endswith("/migrations/versions/0005_release_assistant.py") for name in packaged)
+    assert any(
+        name.endswith("/backend/migrations/versions/0005_release_assistant.py") for name in packaged
+    )
     subprocess.run(
         ["uv", "pip", "install", "--python", str(python), str(wheel)],
         check=True,

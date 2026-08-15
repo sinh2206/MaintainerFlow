@@ -22,7 +22,7 @@ analysis and release preview do not need Docker, GitHub credentials or a Gemini 
 with PostgreSQL/Redis uses:
 
 ```powershell
-docker compose up -d --build
+docker compose up -d --build --wait
 docker compose run --rm migrate alembic upgrade head
 Invoke-RestMethod http://localhost:8000/ready
 ```
@@ -35,9 +35,13 @@ private source/diffs, access tokens or production database dumps.
 Run the full local gate:
 
 ```powershell
+npm ci --prefix frontend
+npm run typecheck --prefix frontend
+npm test --prefix frontend
+npm run build --prefix frontend
 uv run ruff format --check .
 uv run ruff check .
-uv run mypy src/maintainerflow
+uv run mypy backend/src/maintainerflow
 uv run pytest -m "not e2e"
 uv run pytest -m e2e
 docker compose run --rm migrate alembic upgrade head
